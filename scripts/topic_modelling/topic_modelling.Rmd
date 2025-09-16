@@ -24,3 +24,12 @@ drive_download(as_id(file_id), path = here("data", "training_data",filename), ov
 reviews_sampled <- readRDS(here("data", "training_data", filename))
 ```
 
+####WARNING
+Make sure the to include a downloaded "business.rds" in your local folder "raw_data" before you run the next code chunk!
+
+```{r}
+business <- readRDS(here("data", "raw_data","business.rds"))
+
+reviews_sampled <- reviews_sampled %>%
+  left_join(business %>% select(business_id, is_open), by = "business_id")
+```
