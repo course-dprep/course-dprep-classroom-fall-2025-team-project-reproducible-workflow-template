@@ -14,6 +14,8 @@ set.seed(1234)
 dir.create(here("data","training_data"), recursive = TRUE, showWarnings = FALSE)
 
 # ---- Download raw review sample 
+# ---- Download raw review sample (come nel tuo cleaning)
+>>>>>>> topic-modelling-LDA
 folder_id <- "1oRNbZpA4kXZRsvcNe5K1FRYFKqqT5W2h"
 googledrive::drive_deauth()
 folder <- drive_ls(as_id(folder_id))
@@ -83,6 +85,12 @@ data <- reviews_sampled %>% transmute(text = text_label, id = review_id)
 
 # 2) PRE-PROCESSING 
 
+# 1) LOADING OF DATA (adattiamo a text/id come nella guida)
+data <- reviews_sampled %>% transmute(text = text_label, id = review_id)
+
+# 2) PRE-PROCESSING (come nell’articolo)
+# rimozioni "didattiche" stile tutorial
+>>>>>>> topic-modelling-LDA
 data$text <- sub("RT.*:", "", data$text)
 data$text <- sub("@.* ", "", data$text)
 
@@ -99,6 +107,8 @@ text_cleaning_tokens <- text_cleaning_tokens %>%
 tokens <- text_cleaning_tokens %>% dplyr::filter(!(word == ""))
 
 
+# ricompone per passare stringhe a CreateDtm (come in guida)
+>>>>>>> topic-modelling-LDA
 tokens <- tokens %>%
   dplyr::group_by(id) %>%
   dplyr::mutate(ind = dplyr::row_number()) %>%
@@ -120,11 +130,20 @@ rownames(original_tf) <- 1:nrow(original_tf)
 vocabulary <- tf$term[ tf$term_freq > 1 & tf$doc_freq < nrow(dtm) / 2 ]
 
 # 3b) Tuning coherence su k=1..20 (CalcProbCoherence)
+=======
+# vocabolario come in guida: term_freq > 1 & doc_freq < metà docs
+vocabulary <- tf$term[ tf$term_freq > 1 & tf$doc_freq < nrow(dtm) / 2 ]
+
+# 3b) Tuning per coerenza su k=1..20 (CalcProbCoherence)
+>>>>>>> topic-modelling-LDA
 k_list <- seq(1, 20, by = 1)
 model_dir <- paste0("models_", digest::digest(vocabulary, algo = "sha1"))
 if (!dir.exists(model_dir)) dir.create(model_dir)
 
 #  Windows TmParallelApply use export 
+=======
+# Nota: su Windows TmParallelApply usa export per oggetti
+>>>>>>> topic-modelling-LDA
 model_list <- textmineR::TmParallelApply(
   X = k_list,
   FUN = function(k){
@@ -149,6 +168,9 @@ coherence_mat <- data.frame(
 )
 
 # coherence plot 
+=======
+# plot coerenza
+>>>>>>> topic-modelling-LDA
 p_coh <- ggplot(coherence_mat, aes(x = k, y = coherence)) +
   geom_point() +
   geom_line(group = 1) +
@@ -158,6 +180,9 @@ p_coh <- ggplot(coherence_mat, aes(x = k, y = coherence)) +
 ggplot2::ggsave(here("data","training_data","coherence_plot.png"), p_coh, width = 7, height = 4, dpi = 150)
 
 # choose model
+=======
+# scegli il modello migliore per coerenza
+>>>>>>> topic-modelling-LDA
 model <- model_list[[ which.max(coherence_mat$coherence) ]]
 
 # top terms per topic (GetTopTerms)
@@ -166,6 +191,9 @@ top20_wide <- as.data.frame(model$top_terms)
 readr::write_csv(top20_wide, here("data","training_data","lda_top_terms_textmineR.csv"))
 
 # 3c) Dendrogram (Hellinger + hclust) 
+=======
+# 3c) Dendrogramma (Hellinger + hclust) come nella guida
+>>>>>>> topic-modelling-LDA
 model$topic_linguistic_dist <- textmineR::CalcHellingerDist(model$phi)
 model$hclust <- hclust(as.dist(model$topic_linguistic_dist), "ward.D")
 png(here("data","training_data","topics_dendrogram.png"), width=900, height=600)
@@ -175,6 +203,10 @@ dev.off()
 # 4) Wordcloud per topic 
 
 # table with words and weights
+=======
+# 4) Wordcloud per topic (come nella guida, su PDF)
+# Prepara tabella parole & pesi
+>>>>>>> topic-modelling-LDA
 final_summary_words <- data.frame(top_terms = t(model$top_terms))
 final_summary_words$topic <- rownames(final_summary_words)
 rownames(final_summary_words) <- 1:nrow(final_summary_words)
@@ -184,6 +216,9 @@ final_summary_words <- final_summary_words %>%
   dplyr::select(-variable)
 
 # 'allterms' = phi long format
+=======
+# 'allterms' = phi in formato long per associare pesi
+>>>>>>> topic-modelling-LDA
 allterms <- reshape2::melt(model$phi)
 colnames(allterms) <- c("topic","word","value")
 allterms$topic <- as.character(allterms$topic)
@@ -195,6 +230,9 @@ final_summary_words <- dplyr::left_join(final_summary_words, allterms, by = c("t
   dplyr::ungroup()
 
 # (optional) merge frequencies
+=======
+# (opzionale) unisci freq globali
+>>>>>>> topic-modelling-LDA
 word_topic_freq <- dplyr::left_join(final_summary_words, original_tf, by = c("word" = "term"))
 
 pdf(here("data","training_data","topics_wordclouds.pdf"))
@@ -210,6 +248,9 @@ for(i in sort(unique(as.integer(final_summary_words$topic)))) {
 dev.off()
 
 # 5) Export probabilities per document (theta) + match topics
+=======
+# 5) Export probabilities per document (theta) + assegnazione topic dominante
+>>>>>>> topic-modelling-LDA
 theta <- model$theta                        # Document x Topic
 doc_ids <- rownames(theta)
 
@@ -224,6 +265,9 @@ assigned <- data.frame(
 )
 
 # join 
+=======
+# join con info originali (solo doc rimasti)
+>>>>>>> topic-modelling-LDA
 base <- reviews_sampled %>% dplyr::filter(review_id %in% doc_ids)
 
 out <- base %>%
@@ -233,6 +277,9 @@ out <- base %>%
 readr::write_csv(out, here("data","training_data","reviews_lda_out_textmineR.csv"))
 
 # end
+=======
+# ----- Fine -----
+>>>>>>> topic-modelling-LDA
 cat("\nDone!\n",
     "Saved files in data/training_data/:\n",
     " - reviews_python_in.csv (pulito)\n",
