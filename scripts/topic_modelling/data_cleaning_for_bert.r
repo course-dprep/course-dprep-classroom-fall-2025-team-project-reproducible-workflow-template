@@ -92,8 +92,4 @@ write_csv(reviews_sampled %>%
 		  here("data", "training_data", "reviews_python_in.csv")
 )
 
-#write csv 
-write_csv(reviews_sampled %>% 
-		  	select(text)%>%slice_sample(n = 500),
-		  here("data", "training_data", "reviews_text.csv")
-)
+
