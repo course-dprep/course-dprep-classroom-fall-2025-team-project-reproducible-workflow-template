@@ -11,7 +11,6 @@ invisible(lapply(required_packages, function(pkg) {
 	suppressPackageStartupMessages(library(pkg, character.only = TRUE))
 }))
 
-
 #3. check if TinyTex is installed
 if (!tinytex::is_tinytex()) {
 	message("TinyTeX not installed. Please run tinytex::install_tinytex() in the console.")}
