@@ -15,10 +15,9 @@ review <- readRDS(here("data", "raw_data","review.rds"))
 business <- readRDS(here("data", "raw_data","business.rds"))
 
 #collect $business_id vector for all Restaurant businesses
-restaurant_ids <- business[
-  grepl("Restaurants", categories, fixed = TRUE), 
-  unique(business_id)
-]
+restaurant_ids <- business %>% 
+  filter(grepl("Restaurants", categories)) %>%
+  pull(business_id)
 
 #set index to speed up the data join
 setindex(review, business_id)
