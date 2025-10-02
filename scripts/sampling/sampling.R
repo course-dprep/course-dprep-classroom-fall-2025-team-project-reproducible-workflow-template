@@ -1,134 +1,112 @@
-required_packages <- c("tidyverse", "data.table", "here", "googledrive")
+# ========== SETUP ==========
+
+# Loading packages
+required_packages <- c("tidyverse", "data.table", "here")
 
 for (pkg in required_packages) {
-	if (!requireNamespace(pkg, quietly = TRUE)) {
-		suppressMessages(install.packages(pkg))
+	if (requireNamespace(pkg, quietly = TRUE)) {
+		suppressWarnings(
+			suppressPackageStartupMessages(
+				library(pkg, character.only = TRUE)
+			)
+		)
+	} else {
+		message(sprintf(
+			"Package '%s' is not installed. Make sure to first install all the required packages for this project by running dependencies/install_packages.R",
+			pkg
+		))
 	}
 }
-#load all the dependencies
-invisible(lapply(required_packages, function(pkg) {
-	suppressPackageStartupMessages(library(pkg, character.only = TRUE))
-}))
 
-#loading data.tables into environment
-review <- readRDS(here("data", "raw_data","review.rds"))
-business <- readRDS(here("data", "raw_data","business.rds"))
+# == Global parameters ==
 
-#collect $business_id vector for all Restaurant businesses
-restaurant_ids <- business[
-  grepl("Restaurants", categories, fixed = TRUE), 
-  unique(business_id)
-]
+#Setting seed for reproducability
+set.seed(2310)  
 
-#set index to speed up the data join
-setindex(review, business_id)
-
-#data join
-review_restaurants <- review[.(restaurant_ids), on = "business_id", nomatch = 0L]
-
-#check
-uniqueN(review_restaurants$business_id)  # should return 52268
-
-#stores data.table that includes business_id and corresponding number of reviews
-review_counts <- review_restaurants[, .(n_reviews = .N), by = business_id]
-
-restaurant_status <- business[.(restaurant_ids), on = "business_id", .(business_id, is_open)]
-
-
-# merge counts with open/closed status
-review_counts_status <- review_counts[
-  business[, .(business_id, is_open)], 
-  on = "business_id"
-]
-
-# how many restaurants are closed and have >= 50 reviews?
-closed_50plus <- review_counts_status[n_reviews >= 50 & is_open == 0, .N]
-closed_50plus   #no of restaurants that are closed but have 50+ reviews
-
-checkin <- readRDS(here("data", "raw_data", "checkin.rds"))	#get checkin data in environment
-
-checkin[,date :=na_if(str_trim(date), "")]
-
-checkin[,last_checkin := as.IDate(fifelse(is.na(date),NA_character_, str_sub(date, -19,-10)))]
-
-is.na(checkin$last_checkin)%>%table() #no NA's, so extra safe for future operations
-
-
-
+# Date cutoff to ensure recency of the reviews when the sampling
 date_cutoff <- "2018-01-01"
 
-    #CLOSED RESTAURANTS
+# ========== INPUT ==========
 
-closed_ids <- restaurant_status[is_open == 0, unique(business_id)]  #closed restaurants id's
+#Loading data into environment
+review <- readRDS(here("data", "raw_data","review.rds"))
+business <- readRDS(here("data", "raw_data","business.rds"))
+checkin <- readRDS(here("data", "raw_data", "checkin.rds"))
 
-since2018_closed <- review_restaurants[
-  checkin[, .(business_id, last_checkin)],          # bring in last_checkin by business
-  on = "business_id"
+# ========== TRANSFORMATION ==========
+
+# Making the datasets data.tables as it is faster
+setDT(review)
+setDT(business)
+setDT(checkin)
+
+# Create a vector with all all & only restaurant business id's in it
+restaurant_ids <- business %>%
+	filter(grepl("Restaurants", categories)) %>%
+	pull(business_id)
+
+setindex(review, business_id) #speeds up the data filtering in the next step
+
+# Create data.table with only reviews on restaurants
+review_restaurants <- review[.(restaurant_ids), on = "business_id", nomatch = 0L]
+
+# Create a data.table with restaurant information: no. of reviews and open/closed status
+restaurant_info <- review_restaurants[, .(n_reviews = .N), by = business_id][
+	business[, .(business_id, is_open)], on = "business_id", nomatch = 0L]
+
+# Create new variable that holds the last recorded timestamp of a checkin
+checkin[,last_checkin := as.IDate(fifelse(is.na(date),NA_character_, str_sub(date, -19,-10)))]
+
+# Change the format of $date to Idate (YYYY - MM - DD) 
+review_restaurants[, date := as.IDate(date)]
+
+# Sample eligible business id's:
+
+	# Restaurants only
+	# 200 business_id's in total
+	# 50/50 split between open/closed restaurants
+	# At least 50 reviews between date cutoff and last registered checkin timestamp
+
+sampled_ids <- review_restaurants[
+	checkin[, .(business_id, last_checkin)], 
+	on = "business_id", 
+	last_checkin := i.last_checkin			# Join last_checkin column into the dataframe by business_id
 ][
-  business_id %chin% closed_ids & 
-  date >= as.IDate(date_cutoff) & 
-  !is.na(last_checkin) & 
-  date <= last_checkin,                             # only count reviews before last recorded check in time
-  .N,
-  by = business_id
+	date >= as.IDate(date_cutoff) & 
+		!is.na(last_checkin) & 
+		date <= last_checkin,   			# Compute no. of reviews between cutoff date and last checkin stamp
+	.N, by = business_id
+][
+	N >= 50                     			# Select only restaurants with 50 or more reviews in that period
+][
+	business[, .(business_id, is_open)], on = "business_id", nomatch = 0L
+][
+	, .SD[sample(.N, 100)], by = is_open	# Sample exactly 100 id's per is_open condition
+][
+	, business_id							# Pull the sampled business id's
 ]
 
-since2018_closed[N >= 100, .N]  #no. of closed restaurants that have 100+ reviews since 2018, before their last checkin
-
-closed_100plus_since18 <- since2018_closed[N >= 100, business_id] #business_id vector
-
-    #OPEN RESTAURANTS
-
-open_ids <- restaurant_status[is_open == 1, unique(business_id)]  ##open restaurants id's
-
-since2018_open <- review_restaurants[
-  business_id %chin% open_ids & date >= as.IDate(date_cutoff),
-  .N,
-  by = business_id
-]   #list of restaurants that are open and their no. of reviews since 01 / 01 / 2018
-
-since2018_open[N >= 100, .N]  #no. of open restaurants that have 100+ reviews since 2018 
-
-open_100plus_since18 <- since2018_open[N >= 100, business_id] #business_id vector
-
-
-set.seed(2310)    #setting seed for reproducibility
-
-sampled_closed_ids <- sample(closed_100plus_since18, 50)  #sampled business id's for closed restaurants
-
-sampled_open_ids <- sample(open_100plus_since18, 50)      #sampled business id's for open restaurants
-
-
-sampled_ids <- c(sampled_closed_ids, sampled_open_ids)  #vector of all the sampled id's
-
-review_restaurants[, date_id := as.IDate(date)] #creating date id (YYYY - MM - DD)
-
-# copy last_checkin from `checkin` into `review_restaurants` by business_id
-review_restaurants[checkin, on = "business_id", last_checkin := i.last_checkin]
-
-review_restaurants_since18 <- review_restaurants[
-  date_id >= as.IDate(date_cutoff) &	# after 2018
-  date_id <= last_checkin				# before restaurant's last checkin
+# Sampling 25 reviews per sampled business_id
+reviews_sampled <- review_restaurants[
+	business_id %in% sampled_ids												# Filter only eligible sampled id's				
+][
+	date >= as.IDate(date_cutoff) & !is.na(last_checkin) & date <= last_checkin	# Keeping only eligible reviews
+][
+	, .SD[sample(.N, 25, replace = .N < 25)], by = business_id              	# Sample per business id
 ]
 
-setindex(review_restaurants_since18, business_id) #improves speed 
+# ========== OUTPUT ==========
 
-set.seed(2310)  #set seed for reproducibility
-
-reviews_sampled <- review_restaurants_since18[
-  business_id %chin% sampled_ids,   #select only rows where business_id matches with samples_ids
-  .SD[sample(.N, 50)],              #sample 50 out of total .N ->
-  by = business_id                  #per business_id
-]
-
-
-# Ensure training_data directory
+# Create root/data/training_data directory if it has not been created yet
 dir.create(here("data", "training_data"), recursive = TRUE, showWarnings = FALSE)
 
-# Store the training data as .rds file
+# Store the sampled reviews as .rds file
 saveRDS(reviews_sampled, here("data","training_data","reviews_sampled.rds"))
 local_path <- here("data","training_data","reviews_sampled.rds")	#local path where file is stored
-file_name <- "reviews_sampled.rds"
 
-folder_id <- "1oRNbZpA4kXZRsvcNe5K1FRYFKqqT5W2h"
-			
+# Output message
+message(paste0("Stored the sampled reviews as a .rds file in the following directory: ",local_path))
+
+
+
+
