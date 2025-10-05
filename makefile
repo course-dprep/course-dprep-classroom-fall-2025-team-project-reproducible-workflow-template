@@ -4,7 +4,7 @@ DOWNLOAD = scripts/data_download
 TOPIC_MODELLING = scripts/topic_modelling
 
 # Main target of make file: 
-all: data/raw_data data/training_data/reviews_sampled.rds data/training_data/reviews_python_in.csv
+all: data/raw_data data/training_data/reviews_sampled.rds data/training_data/reviews_python_in.csv data/training_data/reviews_python_out.csv
 
 # Step 1: Download raw data
 data/raw_data: $(DOWNLOAD)/data_download.R
