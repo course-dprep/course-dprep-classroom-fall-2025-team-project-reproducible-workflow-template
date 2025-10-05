@@ -1,4 +1,4 @@
-required_packages <- c("tidyverse", "tidyr", "dplyr" "readr", "data.table", "here", "googledrive", "cld3", "wordcloud", "RColorBrewer")
+required_packages <- c("tidyverse", "tidyr", "dplyr", "readr", "data.table", "here", "googledrive", "cld3", "wordcloud", "RColorBrewer")
 
 for (pkg in required_packages) {
   if (!requireNamespace(pkg, quietly = TRUE)) {
@@ -6,7 +6,7 @@ for (pkg in required_packages) {
   }
 }
 
-install.packages(c("wordcloud","tm"),repos="http://cran.r-project.org")
+# install.packages(c("wordcloud","tm"),repos="http://cran.r-project.org")
 library(wordcloud)
 library(tm)
 
@@ -35,7 +35,7 @@ if (!dir.exists("plots")) {
 }
 
 # Define color palette
-pal <- brewer.pal(8, "Dark2")
+pal <- brewer.pal(3, "Set1")
 
 # Create and save a wordcloud for each topic
 for (t in unique(BERTopic_words$Topic)) {
@@ -61,6 +61,7 @@ for (t in unique(BERTopic_words$Topic)) {
   
   dev.off()
   
-  cat("✅ Saved:", png_name, "\n")
+  cat("saved:", png_name, "\n")
 }
+
 
