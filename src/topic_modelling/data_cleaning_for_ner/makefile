@@ -1,33 +1,28 @@
 # -----------------------------------
-# Makefile: Sampling data
+# Makefile: Data Cleaning for NER
 # -----------------------------------
 
 # ----------------------------
 # Input and Output Directories
 # ----------------------------
-DATA_DIR_RAW        := ../../data/raw_data
-DATA_DIR_TRAINING   := ../../data/training_data
-DATA_DIR_VALIDATION := ../../data/validation_data
+DATA_DIR_TRAINING := ../../../data/training_data
 
 # ----------------------------
 # Input Files
 # ----------------------------
-REVIEW_RAW   := $(DATA_DIR_RAW)/review.rds
-BUSINESS_RAW := $(DATA_DIR_RAW)/business.rds
-CHECKIN_RAW  := $(DATA_DIR_RAW)/checkin.rds
+REVIEWS_SAMPLE := $(DATA_DIR_TRAINING)/reviews_sampled.rds
 
 # ----------------------------
 # Script
 # ----------------------------
-SCRIPT := sampling.R
+SCRIPT := data_cleaning_for_ner.R
 
 # ----------------------------
 # Output Files
 # ----------------------------
-TRAINING_SAMPLED  := $(DATA_DIR_TRAINING)/reviews_sampled.rds
-VALIDATION_SAMPLED := $(DATA_DIR_VALIDATION)/reviews_validation.rds
+REVIEWS_CLEANED_NER := $(DATA_DIR_TRAINING)/reviews_cleaned_for_ner.csv
 
-TARGETS := $(TRAINING_SAMPLED) $(VALIDATION_SAMPLED)
+TARGETS := $(REVIEWS_CLEANED_NER)
 
 # ----------------------------
 # Default Target
@@ -35,16 +30,16 @@ TARGETS := $(TRAINING_SAMPLED) $(VALIDATION_SAMPLED)
 all: $(TARGETS)
 
 # ----------------------------
-# Directory Creation Rules
+# Directory Creation Rule
 # ----------------------------
-$(DATA_DIR_TRAINING) $(DATA_DIR_VALIDATION):
+$(DATA_DIR_TRAINING):
 	if not exist $@ mkdir $@
 
 # ----------------------------
-# Sampling Rule
+# Cleaning Rule
 # ----------------------------
-$(TARGETS): $(SCRIPT) $(REVIEW_RAW) $(BUSINESS_RAW) $(CHECKIN_RAW) | $(DATA_DIR_TRAINING) $(DATA_DIR_VALIDATION)
-	@echo "Running sampling script..."
+$(TARGETS): $(SCRIPT) $(REVIEWS_SAMPLE) | $(DATA_DIR_TRAINING)
+	@echo "Cleaning reviews specifically for NER masking..."
 	Rscript $(SCRIPT)
 
 # ----------------------------

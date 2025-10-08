@@ -11,7 +11,7 @@ import datetime
 # === Global parameters ===
 
 # Relative location of the project root
-project_root = Path(__file__).resolve().parents[2]
+project_root = Path(__file__).resolve().parents[3]
 
 # Data input paths
 input_paths = {

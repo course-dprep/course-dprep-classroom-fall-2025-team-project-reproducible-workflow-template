@@ -1,33 +1,29 @@
 # -----------------------------------
-# Makefile: Sampling data
+# Makefile: BERTopic Modeling
 # -----------------------------------
 
 # ----------------------------
 # Input and Output Directories
 # ----------------------------
-DATA_DIR_RAW        := ../../data/raw_data
-DATA_DIR_TRAINING   := ../../data/training_data
-DATA_DIR_VALIDATION := ../../data/validation_data
+DATA_DIR_TRAINING := ../../../data/training_data
 
 # ----------------------------
 # Input Files
 # ----------------------------
-REVIEW_RAW   := $(DATA_DIR_RAW)/review.rds
-BUSINESS_RAW := $(DATA_DIR_RAW)/business.rds
-CHECKIN_RAW  := $(DATA_DIR_RAW)/checkin.rds
+REVIEWS_CLEANED := $(DATA_DIR_TRAINING)/reviews_cleaned_for_bert.csv
 
 # ----------------------------
 # Script
 # ----------------------------
-SCRIPT := sampling.R
+SCRIPT := topic_model_bert.py
 
 # ----------------------------
 # Output Files
 # ----------------------------
-TRAINING_SAMPLED  := $(DATA_DIR_TRAINING)/reviews_sampled.rds
-VALIDATION_SAMPLED := $(DATA_DIR_VALIDATION)/reviews_validation.rds
+TOPIC_PROBABILITIES := $(DATA_DIR_TRAINING)/bertopic_cluster_probabilities.csv
+TOPIC_INFO          := $(DATA_DIR_TRAINING)/bertopic_topic_info.csv
 
-TARGETS := $(TRAINING_SAMPLED) $(VALIDATION_SAMPLED)
+TARGETS := $(TOPIC_PROBABILITIES) $(TOPIC_INFO)
 
 # ----------------------------
 # Default Target
@@ -35,17 +31,17 @@ TARGETS := $(TRAINING_SAMPLED) $(VALIDATION_SAMPLED)
 all: $(TARGETS)
 
 # ----------------------------
-# Directory Creation Rules
+# Directory Creation Rule
 # ----------------------------
-$(DATA_DIR_TRAINING) $(DATA_DIR_VALIDATION):
+$(DATA_DIR_TRAINING):
 	if not exist $@ mkdir $@
 
 # ----------------------------
-# Sampling Rule
+# Topic Modeling Rule
 # ----------------------------
-$(TARGETS): $(SCRIPT) $(REVIEW_RAW) $(BUSINESS_RAW) $(CHECKIN_RAW) | $(DATA_DIR_TRAINING) $(DATA_DIR_VALIDATION)
-	@echo "Running sampling script..."
-	Rscript $(SCRIPT)
+$(TARGETS): $(SCRIPT) $(REVIEWS_CLEANED) | $(DATA_DIR_TRAINING)
+	@echo "Running BERTopic model..."
+	py -3.11 $(SCRIPT)
 
 # ----------------------------
 # Clean Rule

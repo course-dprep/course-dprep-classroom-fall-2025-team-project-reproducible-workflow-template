@@ -1,33 +1,28 @@
 # -----------------------------------
-# Makefile: Sampling data
+# Makefile: Named Entity Masking (NER)
 # -----------------------------------
 
 # ----------------------------
 # Input and Output Directories
 # ----------------------------
-DATA_DIR_RAW        := ../../data/raw_data
-DATA_DIR_TRAINING   := ../../data/training_data
-DATA_DIR_VALIDATION := ../../data/validation_data
+DATA_DIR_TRAINING := ../../../data/training_data
 
 # ----------------------------
 # Input Files
 # ----------------------------
-REVIEW_RAW   := $(DATA_DIR_RAW)/review.rds
-BUSINESS_RAW := $(DATA_DIR_RAW)/business.rds
-CHECKIN_RAW  := $(DATA_DIR_RAW)/checkin.rds
+REVIEWS_CLEANED_NER := $(DATA_DIR_TRAINING)/reviews_cleaned_for_ner.csv
 
 # ----------------------------
 # Script
 # ----------------------------
-SCRIPT := sampling.R
+SCRIPT := ner.py
 
 # ----------------------------
 # Output Files
 # ----------------------------
-TRAINING_SAMPLED  := $(DATA_DIR_TRAINING)/reviews_sampled.rds
-VALIDATION_SAMPLED := $(DATA_DIR_VALIDATION)/reviews_validation.rds
+REVIEWS_MASKED := $(DATA_DIR_TRAINING)/reviews_ner_masked.csv
 
-TARGETS := $(TRAINING_SAMPLED) $(VALIDATION_SAMPLED)
+TARGETS := $(REVIEWS_MASKED)
 
 # ----------------------------
 # Default Target
@@ -35,17 +30,17 @@ TARGETS := $(TRAINING_SAMPLED) $(VALIDATION_SAMPLED)
 all: $(TARGETS)
 
 # ----------------------------
-# Directory Creation Rules
+# Directory Creation Rule
 # ----------------------------
-$(DATA_DIR_TRAINING) $(DATA_DIR_VALIDATION):
+$(DATA_DIR_TRAINING):
 	if not exist $@ mkdir $@
 
 # ----------------------------
-# Sampling Rule
+# Masking Rule
 # ----------------------------
-$(TARGETS): $(SCRIPT) $(REVIEW_RAW) $(BUSINESS_RAW) $(CHECKIN_RAW) | $(DATA_DIR_TRAINING) $(DATA_DIR_VALIDATION)
-	@echo "Running sampling script..."
-	Rscript $(SCRIPT)
+$(TARGETS): $(SCRIPT) $(REVIEWS_CLEANED_NER) | $(DATA_DIR_TRAINING)
+	@echo "Running NER script to mask named and food entities in reviews..."
+	py -3.11 $(SCRIPT)
 
 # ----------------------------
 # Clean Rule

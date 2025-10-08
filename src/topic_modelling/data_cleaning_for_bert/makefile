@@ -1,33 +1,30 @@
 # -----------------------------------
-# Makefile: Sampling data
+# Makefile: Data Cleaning for BERTopic
 # -----------------------------------
 
 # ----------------------------
 # Input and Output Directories
 # ----------------------------
-DATA_DIR_RAW        := ../../data/raw_data
-DATA_DIR_TRAINING   := ../../data/training_data
-DATA_DIR_VALIDATION := ../../data/validation_data
+DATA_DIR_RAW      := ../../../data/raw_data
+DATA_DIR_TRAINING := ../../../data/training_data
 
 # ----------------------------
 # Input Files
 # ----------------------------
-REVIEW_RAW   := $(DATA_DIR_RAW)/review.rds
-BUSINESS_RAW := $(DATA_DIR_RAW)/business.rds
-CHECKIN_RAW  := $(DATA_DIR_RAW)/checkin.rds
+REVIEWS_SAMPLE := $(DATA_DIR_TRAINING)/reviews_sampled.rds
+BUSINESS_RAW   := $(DATA_DIR_RAW)/business.rds
 
 # ----------------------------
 # Script
 # ----------------------------
-SCRIPT := sampling.R
+SCRIPT := data_cleaning_for_bert.R
 
 # ----------------------------
 # Output Files
 # ----------------------------
-TRAINING_SAMPLED  := $(DATA_DIR_TRAINING)/reviews_sampled.rds
-VALIDATION_SAMPLED := $(DATA_DIR_VALIDATION)/reviews_validation.rds
+REVIEWS_CLEANED := $(DATA_DIR_TRAINING)/reviews_cleaned_for_bert.csv
 
-TARGETS := $(TRAINING_SAMPLED) $(VALIDATION_SAMPLED)
+TARGETS := $(REVIEWS_CLEANED)
 
 # ----------------------------
 # Default Target
@@ -35,16 +32,16 @@ TARGETS := $(TRAINING_SAMPLED) $(VALIDATION_SAMPLED)
 all: $(TARGETS)
 
 # ----------------------------
-# Directory Creation Rules
+# Directory Creation Rule
 # ----------------------------
-$(DATA_DIR_TRAINING) $(DATA_DIR_VALIDATION):
+$(DATA_DIR_TRAINING):
 	if not exist $@ mkdir $@
 
 # ----------------------------
-# Sampling Rule
+# Cleaning Rule
 # ----------------------------
-$(TARGETS): $(SCRIPT) $(REVIEW_RAW) $(BUSINESS_RAW) $(CHECKIN_RAW) | $(DATA_DIR_TRAINING) $(DATA_DIR_VALIDATION)
-	@echo "Running sampling script..."
+$(TARGETS): $(SCRIPT) $(REVIEWS_SAMPLE) $(BUSINESS_RAW) | $(DATA_DIR_TRAINING)
+	@echo "Cleaning data for BERTopic clustering..."
 	Rscript $(SCRIPT)
 
 # ----------------------------

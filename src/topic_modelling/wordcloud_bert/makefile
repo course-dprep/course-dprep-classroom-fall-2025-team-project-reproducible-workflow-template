@@ -1,33 +1,30 @@
 # -----------------------------------
-# Makefile: Sampling data
+# Makefile: Wordcloud BERT
 # -----------------------------------
 
 # ----------------------------
 # Input and Output Directories
 # ----------------------------
-DATA_DIR_RAW        := ../../data/raw_data
-DATA_DIR_TRAINING   := ../../data/training_data
-DATA_DIR_VALIDATION := ../../data/validation_data
+DATA_DIR_TRAINING := ../../../data/training_data
+GEN_DIR_FIGURES := ../../../gen/figures
 
 # ----------------------------
 # Input Files
 # ----------------------------
-REVIEW_RAW   := $(DATA_DIR_RAW)/review.rds
-BUSINESS_RAW := $(DATA_DIR_RAW)/business.rds
-CHECKIN_RAW  := $(DATA_DIR_RAW)/checkin.rds
+BERTOPIC_TOPICS := $(DATA_DIR_TRAINING)/bertopic_topic_info.csv
 
 # ----------------------------
 # Script
 # ----------------------------
-SCRIPT := sampling.R
+SCRIPT := wordcloud_bert.R
 
 # ----------------------------
 # Output Files
 # ----------------------------
-TRAINING_SAMPLED  := $(DATA_DIR_TRAINING)/reviews_sampled.rds
-VALIDATION_SAMPLED := $(DATA_DIR_VALIDATION)/reviews_validation.rds
+WORDCLOUD := $(GEN_DIR_FIGURES)/wordcloud_bert.pdf
 
-TARGETS := $(TRAINING_SAMPLED) $(VALIDATION_SAMPLED)
+
+TARGETS := $(WORDCLOUD)
 
 # ----------------------------
 # Default Target
@@ -35,16 +32,16 @@ TARGETS := $(TRAINING_SAMPLED) $(VALIDATION_SAMPLED)
 all: $(TARGETS)
 
 # ----------------------------
-# Directory Creation Rules
+# Directory Creation Rule
 # ----------------------------
-$(DATA_DIR_TRAINING) $(DATA_DIR_VALIDATION):
+$(DATA_DIR_TRAINING) $(GEN_DIR_FIGURES):
 	if not exist $@ mkdir $@
 
 # ----------------------------
-# Sampling Rule
+# Wordcloud rule
 # ----------------------------
-$(TARGETS): $(SCRIPT) $(REVIEW_RAW) $(BUSINESS_RAW) $(CHECKIN_RAW) | $(DATA_DIR_TRAINING) $(DATA_DIR_VALIDATION)
-	@echo "Running sampling script..."
+$(TARGETS): $(SCRIPT) $(BERTOPIC_TOPICS) | $(DATA_DIR_TRAINING) $(GEN_DIR_FIGURES)
+	@echo "Creating BERTopic wordclouds..."
 	Rscript $(SCRIPT)
 
 # ----------------------------
