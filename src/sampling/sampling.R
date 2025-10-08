@@ -37,11 +37,12 @@ input_paths <- list(
 # Relative paths of the output files
 output_paths <- list(
 	reviews_sampled = here("data", "training_data", "reviews_sampled.rds"),
-	reviews_validation = here("data", "training_data", "reviews_validation.rds")
+	reviews_validation = here("data", "validation_data", "reviews_validation.rds")
 )
 
 # Create root/data/training_data directory if it has not been created yet
 dir.create(here("data", "training_data"), recursive = TRUE, showWarnings = FALSE)
+dir.create(here("data", "validation_data"), recursive = TRUE, showWarnings = FALSE)
 
 # ========== INPUT ==========
 
