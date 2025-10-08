@@ -3,6 +3,8 @@
 *.csv
 *.rds
 *.here
+*.pdf
+*.html
 #Local R session junk
 .Rhistory
 .RData
