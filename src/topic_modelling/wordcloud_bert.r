@@ -1,65 +1,96 @@
-required_packages <- c("tidyverse", "tidyr", "dplyr" "readr", "data.table", "here", "googledrive", "cld3", "wordcloud", "RColorBrewer")
+# ========== SETUP ==========
 
+# Required packages
+required_packages <- c("tidyverse", "data.table", "here", "wordcloud", "RColorBrewer")
+
+# Loading packages
 for (pkg in required_packages) {
-	if (!requireNamespace(pkg, quietly = TRUE)) {
-		suppressMessages(install.packages(pkg))
+	if (requireNamespace(pkg, quietly = TRUE)) {
+		suppressWarnings(
+			suppressPackageStartupMessages(
+				library(pkg, character.only = TRUE)
+			)
+		)
+	} else {
+		message(sprintf(
+			"Package '%s' is not installed. Make sure to first install all the required packages for this project by running dependencies/install_packages.R",
+			pkg
+		))
 	}
 }
 
-install.packages(c("wordcloud","tm"),repos="http://cran.r-project.org")
-library(wordcloud)
-library(tm)
+# === Global parameters ===
 
+# Set seed for reproducibility
+set.seed(123)  
 
-#load all the dependencies
-invisible(lapply(required_packages, function(pkg) {
-	suppressPackageStartupMessages(library(pkg, character.only = TRUE))
-}))
+# Relative paths of the input files
+input_paths <- list(
+	bertopic_topic_info = here("data", "training_data", "bertopic_topic_info.csv")
+)
 
-filename <- "bertopic_topic_info.csv"
+# Relative paths of the output files
+output_paths <- list(
+	wordcloud_bert = here("gen", "figures", "wordcloud_bert.pdf")
+)
 
-# load data 
-bertopic_topic_info <- read_csv(here("data", "training_data", filename))
+# Output directories to be created
+out_dir <- here::here("gen", "figures")
 
-# Split + unnest words + frequency of words
-BERTopic_viz <- bertopic_topic_info %>% select(Topic, Representation)
+# ========== INPUT ==========
+
+# Load BERTopic Topic Information
+bertopic_topic_info <- readr::read_csv(input_paths$bertopic_topic_info, show_col_types = FALSE)
+
+# ========== TRANSFORMATION ==========
+
+# Select the needed columns
+BERTopic_viz <- dplyr::select(bertopic_topic_info, Topic, Representation)
+
+# Collapse the data
 BERTopic_words <- BERTopic_viz %>%
-	separate_rows(Representation, sep = "\\s+") %>%  # split words
-	mutate(Representation = gsub("[^a-zA-Z0-9]", "", Representation)) %>%  # keep only letters/numbers
-	filter(Representation != "") %>%
-	count(Topic, Representation, sort = TRUE)
-
-# Create folder "plots" if it doesn’t exist
-if (!dir.exists("plots")) {
-	dir.create("plots")
-}
+	tidyr::separate_rows(Representation, sep = "\\s+") %>%
+	dplyr::mutate(
+		Representation = gsub("[^a-zA-Z0-9]", "", Representation),
+		Representation = tolower(Representation)
+	) %>%
+	dplyr::filter(Representation != "") %>%
+	dplyr::count(Topic, Representation, sort = TRUE)
 
 # Define color palette
-pal <- brewer.pal(8, "Dark2")
+pal <- RColorBrewer::brewer.pal(8, "Dark2")
 
-# Create and save a wordcloud for each topic
-for (t in unique(BERTopic_words$Topic)) {
+# Get list of unique topics (sorted for stable ordering)
+topics <- sort(unique(BERTopic_words$Topic))
+
+# Calculate layout of the pdf
+n_topics <- length(topics)
+n_cols   <- ceiling(sqrt(n_topics * 0.8))        # Slightly fewer columns to give more vertical space
+n_rows   <- ceiling(n_topics / n_cols)
+
+# ========== OUTPUT ==========
+
+# Create output directory (create parent folders too)
+if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
+
+# One tall page with all topics
+pdf(output_paths$wordcloud_bert, width = 8.5, height = 12)  # Portrait format
+par(mfrow = c(n_rows, n_cols), mar = c(1, 1, 4, 1))
+
+for (t in topics) {
+	topic_words <- dplyr::filter(BERTopic_words, Topic == t)
 	
-	# Subset words for this topic
-	topic_words <- BERTopic_words %>% filter(Topic == t)
+	wordcloud::wordcloud(
+		words        = topic_words$Representation,
+		freq         = topic_words$n,
+		min.freq     = 1,
+		max.words    = 30,           
+		random.order = FALSE,
+		scale        = c(3.5, 0.7),  
+		colors       = pal
+	)
 	
-	# Create png_name
-	png_name <- file.path("plots", paste0("wordcloud_topic_", t, ".png"))
-	
-	# Save as PNG
-	png(png_name, width = 800, height = 600)
-	
-	# Add title and plot wordcloud
-	wordcloud(words = topic_words$Representation,
-			  freq = topic_words$n,
-			  min.freq = 1,
-			  max.words = 20,
-			  random.order = FALSE,
-			  colors = pal)
-	
-	title(main = paste("Wordcloud for Topic", t), cex.main = 1.5, col.main = "black")
-	
-	dev.off()
-	
-	cat("✅ Saved:", png_name, "\n")
+	title(main = paste("Topic", t), cex.main = 1.2)
 }
+dev.off()
+message("Saved: ", as.character(output_paths$wordcloud_bert))

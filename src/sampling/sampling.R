@@ -150,10 +150,5 @@ reviews_validation <- review_restaurants[
 # Store the sampled reviews as .rds file
 saveRDS(reviews_sampled, output_paths$reviews_sampled)
 
-# Output message
-message(paste0("Stored the sampled reviews as a .rds file in the following directory: ",as.character(output_paths$reviews_sampled)))
-
 # Store sampled validation reviews as .rds file
 saveRDS(reviews_validation, output_paths$reviews_validation)
-
-message(paste0("Stored the sampled validation reviews as a .rds file in the following directory: ",as.character(output_paths$reviews_validation)))

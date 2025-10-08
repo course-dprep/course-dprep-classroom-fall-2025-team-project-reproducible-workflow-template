@@ -1,0 +1,6 @@
+py -3.11 -m pip install --upgrade pip
+py -3.11 -m pip install "typer==0.7.0" "click==8.1.7"
+py -3.11 -m pip install --upgrade spacy spacy-huggingface-hub
+py -3.11 -m spacy download en_core_web_md
+py -3.11 -m spacy download Dingaling01/food_entity_extractor
+py -3.11 -m pip install bertopic==0.16.0 sentence-transformers umap-learn hdbscan scikit-learn pandas

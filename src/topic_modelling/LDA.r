@@ -1,11 +1,11 @@
 # ========== SETUP ==========
 
-# Required packages
-required_packages <- c("tidyverse","here","data.table","googledrive",
-					   "tidytext","textmineR","digest","reshape2",
-					   "wordcloud","RColorBrewer", "quanteda", "scales", "gt", "proxy", "RColorBrewer")
+# Packages used in this script
+required_packages <- c("tidyverse","here","data.table",
+					   "tidytext","textmineR","digest", "RColorBrewer", 
+					   "quanteda", "scales", "gt", "proxy")
 
-# Loading packages 
+# Load all required packages, or print a reminder if missing
 for (pkg in required_packages) {
 	if (requireNamespace(pkg, quietly = TRUE)) {
 		suppressWarnings(
@@ -15,100 +15,110 @@ for (pkg in required_packages) {
 		)
 	} else {
 		message(sprintf(
-			"Package '%s' is not installed. Make sure to first install all the required packages for this project by running dependencies/install_packages.R",
+			"Package '%s' is not installed. Please run dependencies/install_packages.R first.",
 			pkg
 		))
 	}
 }
 
-# === Global parameters ===
 
-# Relative paths of the input files
+# ========== GLOBAL SETTINGS ==========
+
+# Define main output directories for saving tables and processed data
+out_dir_tables <- here::here("gen", "tables")
+out_dir_final_data <- here::here("data", "final_data")
+
+# Create folders if they don't exist yet
+if (!dir.exists(out_dir_tables)) dir.create(out_dir_tables, recursive = TRUE)
+if (!dir.exists(out_dir_final_data)) dir.create(out_dir_final_data, recursive = TRUE)
+
+# Input file paths
 input_paths <- list(
 	reviews_ner_masked = here("data", "training_data", "reviews_ner_masked.csv"),
-	reviews_sampled = here("data", "training_data", "reviews_sampled.rds")
+	reviews_sampled    = here("data", "training_data", "reviews_sampled.rds")
 )
 
-# Relative paths of the output files
+# Output file paths (for models, tables, plots)
 output_paths <- list(
-	theta = here("data", "final_data", "theta.csv"),
-	phi = here("data", "final_data", "phi.csv"),
-	coherence_table = here("gen","tables", "coherence_table.html"),
-	coherence_elbow = here("gen", "figures", "coherence_elbow_plot.pdf"),
-	lda_vis = here("gen", "figures", "lda_vis.pdf"),
-	top_terms_pre_frex = here("gen", "tables", "top_terms_pre_frex.html"),
+	theta               = here("data", "final_data", "theta.csv"),
+	phi                 = here("data", "final_data", "phi.csv"),
+	coherence_table     = here("gen","tables", "coherence_table.html"),
+	coherence_elbow     = here("gen", "figures", "coherence_elbow_plot.pdf"),
+	lda_vis             = here("gen", "figures", "lda_vis.pdf"),
+	top_terms_pre_frex  = here("gen", "tables", "top_terms_pre_frex.html"),
 	top_terms_post_frex = here("gen", "tables", "top_terms_post_frex.html"),
-	lda_model = here("data", "final_data", "lda_model.rds")
+	lda_model           = here("data", "final_data", "lda_model.rds")
 )
 
-# Setting seed for reproducibility
+# Set seed for reproducibility
 set.seed(999)
+
 
 # ========== INPUT ==========
 
-# Load masked reviews into environment
+# Load masked reviews
 reviews <- read.csv(input_paths$reviews_ner_masked)
-
-# Ensuring tibble format of the data
 reviews <- tibble::as_tibble(reviews)
 
-# Extracting the columns needed for LDA
+# Keep only the text column used for topic modeling
 data <- reviews %>% transmute(text = masked_for_lda, id = review_id)
 
-# Load sampled reviews into environment
-reviews_sampled <- readRDS(here("data", "training_data", "reviews_sampled.rds"))
+# Load the sampled review set (for reference)
+reviews_sampled <- readRDS(input_paths$reviews_sampled)
 
-# ========== TRANSFORMATION ==========
 
-# Informing the placeholder format
-PLACE <- "(?i)_(?:FOOD|RESTAURANT|LOCATION)_" 
+# ========== TEXT CLEANING & TOKENIZATION ==========
 
-# Removing the NER placeholders from review text
+# Pattern for placeholder tags created during NER masking
+PLACE <- "(?i)_(?:FOOD|RESTAURANT|LOCATION)_"
+
+# Remove placeholders from text and count how many were replaced
 data <- data %>%
 	dplyr::mutate(
 		n_placeholders = str_count(text, PLACE),
 		text = str_squish(str_replace_all(text, PLACE, " "))
 	)
 
-# Tokenizing the reviews
+# Tokenize text and clean it up
 tokens <- data %>%
 	tidytext::unnest_tokens(word, text, strip_punct = TRUE) %>%   
-	filter(!(word %in% quanteda::stopwords("en"))) %>%	# Remove stopwords
-	filter(nchar(word) > 1) %>%							# Remove 1 character words
-	mutate(word = tolower(word)) %>%					# Lowercase the words
-	mutate(word = gsub("[[:digit:]]+", " ", word)) %>%	# Remove digits
-	mutate(word = str_squish(word)) %>%					# Remove whitespaces
-	filter(word != "")									# Filter empty tokens out
-	
-	
-# Convert back to character strings for textmineR 
+	filter(!(word %in% quanteda::stopwords("en"))) %>%  # remove stopwords
+	filter(nchar(word) > 1) %>%                         # remove single-letter tokens
+	mutate(word = tolower(word)) %>%                    # lowercase everything
+	mutate(word = gsub("[[:digit:]]+", " ", word)) %>%  # remove numbers
+	mutate(word = str_squish(word)) %>%                 # trim extra spaces
+	filter(word != "")                                  # drop empty tokens
+
+# Recombine tokens back into a clean string per review
 data_cleaned <- tokens %>%
 	group_by(id) %>%
 	summarise(text = paste(word, collapse = " "), .groups = "drop")
 
-# Build document-term matrix
-dtm <- textmineR::CreateDtm(data_cleaned$text,
-                            doc_names    = data_cleaned$id,
-                            ngram_window = c(1, 2))  
 
-# Build term-doc frequency 
+# ========== CREATE DTM & FILTER VOCABULARY ==========
+
+# Build the document-term matrix
+dtm <- textmineR::CreateDtm(data_cleaned$text,
+							doc_names    = data_cleaned$id,
+							ngram_window = c(1, 2))  
+
+# Compute term and document frequencies
 tf <- textmineR::TermDocFreq(dtm = dtm)
 
-# Build vocabulary for LDA: 
-	#term_freq > 1 & doc_freq <  docs / 4
-	# docs / 4: ignore words that occur in over 25% of the reviews
+# Keep terms that occur at least twice but appear in fewer than 25% of documents
 vocabulary <- tf$term[tf$term_freq > 1 & tf$doc_freq < nrow(dtm) / 4 ]
 
-# Get bing lexicon
+# Get sentiment lexicon and exclude its words from our vocabulary
 bing_words <- get_sentiments("bing")
-
-# Words in your vocabulary but NOT in bing
 valid_terms <- setdiff(vocabulary, bing_words$word)
 
-# Create filtered dtm
+# Filter the DTM to only include valid terms
 dtm_filtered <- dtm[, colnames(dtm) %in% valid_terms]
 
-# LDA k-selection 
+
+# ========== K-SELECTION (TESTING NUMBER OF TOPICS) ==========
+
+# Function that fits multiple LDA models for different k values and saves results
 sweep_k_seq <- function(dtm,
 						k_list       = 1:15,
 						iterations   = 100,
@@ -116,14 +126,14 @@ sweep_k_seq <- function(dtm,
 						seed         = 1234,
 						cache_prefix = "models_i100_") {
 	
-	# Store results in a cache directory based on vocab hash
+	# Cache directory to avoid refitting models unnecessarily
 	vocab_hash <- digest::digest(colnames(dtm), algo = "sha1")
 	cache_dir  <- here("cache", paste0(cache_prefix, vocab_hash))
 	if (!dir.exists(cache_dir)) dir.create(cache_dir, recursive = TRUE)
 	
 	models <- list()
 	
-	# Loop across candidate K values
+	# Fit models for each k
 	for (k in k_list) {
 		f <- file.path(cache_dir, sprintf("k_%03d.rds", k))
 		
@@ -137,39 +147,33 @@ sweep_k_seq <- function(dtm,
 			m$mean_coherence <- mean(m$coherence)
 			saveRDS(m, f)
 		}
-		
 		models[[as.character(k)]] <- m
 	}
 	
-	# Run function with low iterations
-	
-	
-	# Summarize coherence per K
+	# Create summary of coherence scores per k
 	coh_tbl <- data.frame(
 		k              = vapply(models, function(m) m$k,              integer(1)),
 		mean_coherence = vapply(models, function(m) m$mean_coherence, numeric(1)),
 		stringsAsFactors = FALSE
 	)
 	
+	# Pick the model with the highest mean coherence
 	best_idx   <- which.max(coh_tbl$mean_coherence)
 	best_model <- models[[best_idx]]
 	
-	list(
-		models    = models,
-		summary   = coh_tbl,
-		best      = best_model,
-		cache_dir = cache_dir
-	)
+	list(models = models, summary = coh_tbl, best = best_model, cache_dir = cache_dir)
 }
 
-# Run the coherence function
+# Run LDA sweep to test k values
 res <- sweep_k_seq(dtm_filtered, k_list = 1:15, iterations = 100, coherence_M = 5, seed = 1234)
 
-# Determine best K, accounting for local maximums
+
+# ========== PICKING BEST K VALUE ==========
+
+# Function to find local maxima in coherence (prevents overfitting)
 function_k_scores <- function(coh_table){
-	coh_table <- coh_table %>% filter(k > 1)  # Ignore k=1
+	coh_table <- coh_table %>% filter(k > 1)
 	
-	# Find local maxima
 	coh_table <- coh_table %>%
 		mutate(
 			prev = lag(mean_coherence),
@@ -178,62 +182,51 @@ function_k_scores <- function(coh_table){
 			is_local_max = replace_na(is_local_max, FALSE),
 			strength = (mean_coherence - coalesce(prev, mean_coherence)) +
 				(mean_coherence - coalesce(nxt, mean_coherence))
-		)%>% mutate(
+		) %>%
+		mutate(
 			mu = mean(mean_coherence),
-			st.d = sd(mean_coherence)
-		)%>% mutate(
-			coh_z = (mean_coherence - mu)/st.d
-		)%>% mutate(
+			st.d = sd(mean_coherence),
+			coh_z = (mean_coherence - mu)/st.d,
 			coh_rel = scales::rescale(coh_z, to = c(0,1)),
-			pen_strength = strength/sqrt(k)
-		)%>% mutate(
+			pen_strength = strength/sqrt(k),
 			score = ifelse(is_local_max, coh_rel*pen_strength, NA_real_)
 		)
-		
-	
-	
 	return(coh_table)
 }
 
-# Compute the coherence scores
+# Apply and extract best-scoring k
 k_scores <- function_k_scores(res$summary)
+best_k <- k_scores$k[which.max(k_scores$score)] %>% as.numeric()
 
-# Store the best K value
-best_k <- k_scores$k[which.max(k_scores$score)]%>%as.numeric()
-
-# Get the top terms from the best k
+# View top words for this model
 terms_best_k_low_iterations <- GetTopTerms(res$models[[paste0(best_k)]]$phi, M = 15)
 
-## Plot code ###
-#to be added
-	
-# Fit LDA for best k with more iterations
+
+# ========== FIT FINAL LDA MODEL ==========
+
+# Fit the LDA again with more iterations and tuned parameters
 lda_model <- FitLdaModel(
 	dtm              = dtm_filtered,
 	k                = best_k,
 	iterations       = 2000,        
 	burnin           = 500,
-	alpha			 = 0.2,		# Less topics per review
-	beta             = 0.1, 	# Low beta to force more distinctive words    
+	alpha			 = 0.2,  # smaller alpha = fewer topics per doc
+	beta             = 0.1,  # lower beta = more distinctive topics
 	optimize_alpha   = TRUE,
 	calc_likelihood  = TRUE,
 	calc_coherence   = TRUE,
 	calc_r2          = FALSE,
-	cpus             = 1#max(1, parallel::detectCores() - 1)
+	cpus             = 1
 )
 
-# Average topic coherence of the LDA model
-coherence_pre_frex <- lda_model$coherence%>%mean()*100
+# Average topic coherence before FREX filtering
+coherence_pre_frex <- lda_model$coherence %>% mean() * 100
 
-#Topic coherence per topic
-coherence_per_topic_pre_frex <- lda_model$coherence%>%as.data.frame()
 
-# Top terms per topic
-top_terms_pre_frex <- GetTopTerms(phi = lda_model$phi, M = 10) %>%as.data.frame()
+# ========== FREX ADJUSTMENT ==========
 
-# Function to calculate Frequency Exclusivity scores (FREX)
+# Custom FREX function to improve exclusivity of top terms
 CalcFrex <- function(phi, w = 0.5) {
-	# phi = topic-term matrix (topics x words)
 	freq <- phi
 	excl <- phi / matrix(colSums(phi), nrow = nrow(phi), ncol = ncol(phi), byrow = TRUE)
 	
@@ -242,37 +235,32 @@ CalcFrex <- function(phi, w = 0.5) {
 	colnames(frex) <- colnames(phi)
 	
 	for (k in 1:nrow(phi)) {
-		# Rank frequencies & exclusivities for topic k
-		r_freq <- rank(-freq[k, ])       # higher prob = lower rank number
+		r_freq <- rank(-freq[k, ])
 		r_excl <- rank(-excl[k, ])
-		
 		frex[k, ] <- 1 / (w / r_excl + (1 - w) / r_freq)
 	}
-	
 	return(frex)
 }
 
-# Run the FREX function
+# Calculate FREX scores
 frex <- CalcFrex(phi = lda_model$phi, w = 0.5)  
 
-# Store the FREX scores in a dataframe
-frex_df <- as.data.frame(as.table(as.matrix(frex)))
-colnames(frex_df) <- c("topic", "word", "frex")
-
-# Compute the average FREX score per word instead of per every (Topic x Word) combination
-avg_frex <- frex_df %>%
+# Compute average FREX per word
+avg_frex <- as.data.frame(as.table(as.matrix(frex))) %>%
+	rename(topic = Var1, word = Var2, frex = Freq) %>%
 	group_by(word) %>%
 	summarise(avg_frex = mean(frex, na.rm = TRUE), .groups = "drop") %>%
 	arrange(desc(avg_frex))
 
-# Select the words with lowest Frequency-Exclusivity
+# Remove 50 lowest-FREX words and refit the model
 low_frex_words <- avg_frex %>%
 	arrange(avg_frex) %>%
 	slice(1:50) %>%
-	pull(word) %>% as.vector()
+	pull(word)
 
-# Create a filtered dtm that excludes low frex words
 dtm_frex <- dtm_filtered[, !colnames(dtm_filtered) %in% low_frex_words]
+
+# Refit LDA using FREX-filtered vocabulary
 lda_model_frex <- FitLdaModel(
 	dtm              = dtm_frex,
 	k                = best_k,
@@ -284,141 +272,101 @@ lda_model_frex <- FitLdaModel(
 	calc_likelihood  = TRUE,
 	calc_coherence   = TRUE,
 	calc_r2          = FALSE,
-	cpus             = 1#max(1, parallel::detectCores() - 1)
+	cpus             = 1
 )
 
-# Average topic coherence after FREX adjustments
-coherence_post_frex <- lda_model_frex$coherence%>%mean()*100
+# Average coherence after FREX
+coherence_post_frex <- lda_model_frex$coherence %>% mean() * 100
 
-# Top terms per topic after FREX adjustments
-top_terms_post_frex <- GetTopTerms(phi = lda_model_frex$phi, M = 10) %>%as.data.frame()
 
-# Coherence per topic after FREX adjustments
-coherence_per_topic_post_frex <- lda_model_frex$coherence%>%as.data.frame() 
+# ========== EXPORT MODEL RESULTS ==========
 
-# Create theta dataframe ready for exportation
-theta_df <- lda_model_frex$theta %>% as.data.frame() %>%
-	tibble::rownames_to_column("review_id")
-
-# Create phi dataframe ready for exportation
-phi_df <- lda_model_frex$phi %>% as.data.frame()
-
-# Create dataframe with the coherence statistics of both the LDA models
-coherence_df <- data.frame(
-	topic = paste0("Topic ", seq_len(length(lda_model$coherence))),
-	pre_frex  = lda_model$coherence*100,
-	post_frex = lda_model_frex$coherence*100
-)
-
-# Average coherence data
-coherence_avg <- data.frame(
-	topic = "Average",
-	pre_frex = coherence_pre_frex,
-	post_frex = coherence_post_frex
-)
-
-# Combine the coherence dataframes
-coherence_df <- rbind(coherence_df, coherence_avg)%>%
-	mutate(across(pre_frex:post_frex, ~round(.x,2)))
-
-# ========== OUTPUT ==========
-
-# Save the LDA model for model validation phase
+# Save LDA model
 saveRDS(lda_model_frex, output_paths$lda_model)
-# Save theta results as .csv
-write_csv(theta_df, file = output_paths$theta)
 
-#Save phi results as .csv 
-write_csv(phi_df, file = output_paths$phi)
+# Save theta (document-topic) and phi (topic-word) matrices
+write_csv(lda_model_frex$theta %>% as.data.frame() %>% tibble::rownames_to_column("review_id"), output_paths$theta)
+write_csv(lda_model_frex$phi %>% as.data.frame(), output_paths$phi)
 
-# "Elbow-plot" for mean coherence
+
+# ========== PLOTS & TABLES ==========
+
+# Plot coherence vs number of topics ("elbow" plot)
 ggplot(res$summary, aes(x = k, y = mean_coherence)) +
-	geom_line()			+
-	geom_point()		+
+	geom_line() +
+	geom_point() +
 	scale_x_continuous(breaks = 1:15) +
-	scale_y_reverse()	+
+	scale_y_reverse() +
 	labs(
 		x = "Number of topics (k)",
 		y = "Average topic coherence",
 		title = "Coherence vs. Number of Topics"
-	)					+
+	) +
 	theme_minimal()
 
-ggsave(output_paths$coherence_elbow,
-	   width = 7, height = 5, dpi = 300, bg = "white")
+ggsave(output_paths$coherence_elbow, width = 7, height = 5, dpi = 300, bg = "white")
 
 
-# Create publication ready pre-frex, top terms per topic table
-top_terms_pre_frex <- GetTopTerms(phi = lda_model$phi, M = 10) %>%as.data.frame()
+# Top terms tables (before and after FREX)
+top_terms_pre_frex <- GetTopTerms(phi = lda_model$phi, M = 10) %>% as.data.frame()
+top_terms_post_frex <- GetTopTerms(phi = lda_model_frex$phi, M = 10) %>% as.data.frame()
 
-# Convert to dataframe with readable topic names
+# Format for readability
 top_terms_pre_frex_tbl <- top_terms_pre_frex %>%
-	as.data.frame() %>%
 	tibble::rownames_to_column("Rank") %>%
 	rename_with(~ gsub("t_", "Topic ", .x))
 
-gt_top_terms_pre_frex <- top_terms_pre_frex_tbl %>%
-	gt() %>%
+gt(top_terms_pre_frex_tbl) %>%
 	tab_header(
 		title = "Top Terms per Topic (Pre-FREX)",
-		subtitle = "Top 10 most representative words per topic before FREX adjustment"
+		subtitle = "Top 10 most representative words before FREX adjustment"
 	) %>%
-	fmt_markdown(columns = everything()) %>%
-	tab_options(
-		table.font.size = px(14),
-		table.width = pct(100),
-		data_row.padding = px(4),
-		heading.title.font.weight = "bold"
-	)%>%gtsave(., output_paths$top_terms_pre_frex) # Save as HTML
+	tab_options(table.font.size = px(14)) %>%
+	gtsave(output_paths$top_terms_pre_frex)
 
-# Create publication ready post-frex, top terms per topic table
-top_terms_post_frex <- GetTopTerms(phi = lda_model_frex$phi, M = 10) %>%as.data.frame()
-
-# Convert to dataframe with readable topic names
 top_terms_post_frex_tbl <- top_terms_post_frex %>%
-	as.data.frame() %>%
 	tibble::rownames_to_column("Rank") %>%
 	rename_with(~ gsub("t_", "Topic ", .x))
 
-gt_top_terms_post_frex <- top_terms_post_frex_tbl %>%
-	gt() %>%
+gt(top_terms_post_frex_tbl) %>%
 	tab_header(
 		title = "Top Terms per Topic (Post-FREX)",
-		subtitle = "Top 10 most representative words per topic after FREX adjustment"
+		subtitle = "Top 10 most representative words after FREX adjustment"
 	) %>%
-	fmt_markdown(columns = everything()) %>%
-	tab_options(
-		table.font.size = px(14),
-		table.width = pct(100),
-		data_row.padding = px(4),
-		heading.title.font.weight = "bold"
-	)%>%gtsave(., output_paths$top_terms_post_frex)
+	tab_options(table.font.size = px(14)) %>%
+	gtsave(output_paths$top_terms_post_frex)
 
-# Create publication ready coherence table 
-coherence_df %>%
-	gt(rowname_col = "topic") %>%
+
+# ========== COHERENCE TABLE ==========
+
+# Combine coherence values before and after FREX
+coherence_df <- data.frame(
+	topic = paste0("Topic ", seq_len(length(lda_model$coherence))),
+	pre_frex  = lda_model$coherence * 100,
+	post_frex = lda_model_frex$coherence * 100
+)
+
+# Add average row
+coherence_df <- rbind(
+	coherence_df,
+	data.frame(topic = "Average", pre_frex = coherence_pre_frex, post_frex = coherence_post_frex)
+) %>%
+	mutate(across(pre_frex:post_frex, ~ round(.x, 2)))
+
+# Save as HTML table
+gt(coherence_df, rowname_col = "topic") %>%
 	fmt_number(columns = c(pre_frex, post_frex), decimals = 2) %>%
 	tab_header(
 		title = "Topic Coherence Before and After FREX Filtering",
 		subtitle = "Average and per-topic coherence comparison"
 	) %>%
-	tab_spanner(
-		label = "Average Topic Coherence (%)",
-		columns = c(pre_frex, post_frex)
-	) %>%
-	cols_label(
-		pre_frex  = "Pre-FREX",
-		post_frex = "Post-FREX"
-	) %>%
-	tab_style(
-		style = cell_text(weight = "bold"),
-		locations = cells_body(rows = topic == "Average")
-	) %>%
-	opt_table_outline() %>%
-	opt_align_table_header("center")%>%
-	gtsave(., output_paths$coherence_table)
+	tab_spanner(label = "Average Topic Coherence (%)", columns = c(pre_frex, post_frex)) %>%
+	cols_label(pre_frex = "Pre-FREX", post_frex = "Post-FREX") %>%
+	tab_style(style = cell_text(weight = "bold"), locations = cells_body(rows = topic == "Average")) %>%
+	gtsave(output_paths$coherence_table)
 
-# === PLOT code: Visualize distances between the LDA topics ===
+
+# ========== TOPIC DISTANCE PLOT (2D MAP) ==========
 
 # Compute cosine distance between topics
 topic_dist <- proxy::dist(lda_model_frex$phi, method = "cosine")

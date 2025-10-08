@@ -1,7 +1,7 @@
 # ========== SETUP ==========
 
 # Required packages
-required_packages <- c("tidyverse", "data.table", "here", "googledrive", "cld3")
+required_packages <- c("tidyverse", "data.table", "here", "cld3")
 
 # Loading packages
 for (pkg in required_packages) {

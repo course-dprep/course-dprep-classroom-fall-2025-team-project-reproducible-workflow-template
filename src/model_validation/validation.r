@@ -3,7 +3,7 @@
 # Required packages
 required_packages <- c(
 	"tidyverse", "data.table", "here", "cld3", "textclean",
-	"vader", "quanteda", "tm", "pROC", "gt"
+	"vader", "quanteda", "tm", "pROC", "gt", "tidytext", "textmineR", "compositions"
 )
 
 # Load packages silently
@@ -27,7 +27,7 @@ set.seed(2310)
 
 # Define input paths
 input_paths <- list(
-	reviews    = here("data", "training_data", "reviews_validation.rds"),
+	reviews    = here("data", "validation_data", "reviews_validation.rds"),
 	lda_model  = here("data", "final_data", "lda_model.rds"),
 	business   = here("data", "raw_data", "business.rds"),
 	logistic_model = here("data", "final_data", "logistic_model.rds")
@@ -104,10 +104,22 @@ log_scores <- sweep(log_scores, 2, log(alpha), "+")
 theta_val <- exp(log_scores - apply(log_scores, 1, max))
 theta_val <- theta_val / rowSums(theta_val)
 
-# --- Add review_id for merging ---
+# --- Assign topic names based on phi rownames (e.g., "t_1", "t_2", ...) ---
+colnames(theta_val) <- rownames(lda_model$phi)
+
+# --- Convert to dataframe and add review_id before transformation ---
 theta_val <- theta_val %>%
 	as.data.frame() %>%
 	tibble::rownames_to_column("review_id")
+
+# --- Identify topic columns dynamically ---
+topic_cols <- rownames(lda_model$phi)
+
+# --- Apply CLR transformation (same as training) ---
+theta_val_clr <- as.data.frame(compositions::clr(theta_val[, topic_cols] + 1e-20))
+
+# --- Reattach review_id to the transformed data ---
+theta_val <- cbind(review_id = theta_val$review_id, theta_val_clr)
 
 # --- Combine topic, sentiment, and metadata ---
 data_val <- theta_val %>%
@@ -116,13 +128,13 @@ data_val <- theta_val %>%
 	merge(business[, c("business_id", "is_open")],
 		  by = "business_id", all.x = TRUE)
 
-# --- Aggregate to business level ---
+# --- Aggregate to business level dynamically ---
 data_agg <- data_val %>%
 	group_by(business_id) %>%
-	summarise(across(
-		c(t_1, t_2, t_3, t_4, t_5, t_6, t_7, compound),
-		mean, na.rm = TRUE
-	), .groups = "drop") %>%
+	summarise(
+		across(all_of(c(topic_cols, "compound")), mean, na.rm = TRUE),
+		.groups = "drop"
+	) %>%
 	left_join(business[, c("business_id", "is_open")], by = "business_id")
 
 # --- Load trained logistic model ---
@@ -172,8 +184,6 @@ model_summary <- tibble::tibble(
 
 # ========== OUTPUT   ==========
 
-gc()
-
 # --- Save table ---
 gtsave(model_summary, output_paths$model_performance_val)
-message("✅ Model validation results saved to: ", output_paths$model_performance_val)
+
