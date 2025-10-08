@@ -2,7 +2,7 @@
 #data file structures
 *.csv
 *.rds
-*.here
+
 *.pdf
 *.html
 *.png
