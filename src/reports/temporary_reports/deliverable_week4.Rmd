@@ -1,0 +1,408 @@
+---
+title: "deliverable_week4"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+# A topic modeling study: The association between Yelp reviews' sentiment and restaurant closures
+*Which aspects of the feedback provided by Yelp customer reviews are associated with restaurant closures?* 
+
+
+## Motivation
+Online customer reviews play a significant role in shaping how restaurants are perceived by consumers. When searching for new places to eat at, consumers may resort to customer review platforms, such as Yelp, to establish which of several would be worth giving a try. Therefore, the valence of a restaurant's reviews on several different aspects can impact its success, and ultimately, its survival. Restaurant closures are the endmost sign that a restaurant was unsuccessful as a business, something that can occur for several reasons. The aim of this project is then to explore which, if any, aspects of customer reviews are associated to restaurant closures. To do so, a sample of Yelp's restaurant reviews will be used.
+
+Investigating the research question *Which aspects of the feedback provided by Yelp customer reviews are associated with restaurant closures?* is crucial, as the insights derived from it may help current and prospective restaurant owners in detecting potential threats to their establishments' survival. That is, restaurant owners can use our results to, for example, be able to identify warning signs of when their restaurant's survival might be at risk, establish which key areas warrant improvement to exceed customer expectations, and adjust their business strategies to address early signs of threats before they escalate into critical issues. 
+
+
+## Data
+The dataset used was Yelp Open Dataset, a public dataset provided by the review platform *Yelp*. This dataset was obtained via the following link: [Yelp Open Dataset](https://business.yelp.com/data/resources/open-dataset/). 
+
+The dataset contains 5 subsets of data: *business*, *review*, *checkin*, *tip*, and *user*, but only the *business*, *review*, and *checkin* subsets were relevant for our study. The *business* subset contains general business data including location, attributes, categories, and information on whether restaurants are open or closed; the *review* subset contains full review texts and metadata; and the *checkin* subset contains comma-separated timestamps for every logged check-in of each restaurant.
+
+Furthermore, the dataset contains millions of reviews on a variety of types of establishments, services, and experiences that lay outside the scope of our project. Thus, we constructed a balanced dataset that consists of a random sample of 5000 restaurant reviews, ***reviews_sampled.rds***. This sample included 100 restaurants (50 of which open, and 50 of which closed) that each have at least 100 reviews since 2018. For closed restaurants, only reviews up to the date of the last check-in (i.e. while they were still active) were considered. For each restaurant, 50 reviews were randomly selected, resuting in the final sample of 5000 observations. 
+
+The table below summarizes the most important variables at this stage of the project:
+
+```{r}
+# Create a table with the variable names
+
+variable_table <- data.frame(
+  Variable = c("business_id", "review_id", "text", "stars", "date", "user_id", "is_open", "checkin", "last_checkin"),
+  Description = c("The business ID of the reviewed company", "The ID of the review", "The complete review of the user", "The amount of stars (between 1-5) given by the user", "The timestamp of the review", "The ID of the user who submitted the review", "Whether the restaurant is active/open (1) or closed (0)", "All recorded checkin timestamps of reviews for a company", "The last recorded checkin timestamp of a review for a company")
+)
+
+variable_table
+```
+
+## Method
+
+To answer our research question, which is of exploratory nature, we first conducted a sentiment analysis on the 5000- reviews sample. This allowed us to classify the reviews as being of positive or negative nature. We then used topic modeling to identify relevant aspects of positive vs. negative reviews. Lastly, we checked which of, and whether, these aspects are associated to restarant closures.
+
+This integrated approach provides a clear and data-driven way to link review content to business outcomes.
+
+## Data downloading
+
+```{r}
+#Check if all dependencies are installed, and install if needed
+required_packages <- c("tidyverse", "googledrive", "data.table", "here")
+
+for (pkg in required_packages) {
+	if (!requireNamespace(pkg, quietly = TRUE)) {
+		suppressMessages(install.packages(pkg))
+	}
+}
+#Load all the dependencies
+invisible(lapply(required_packages, function(pkg) {
+	suppressPackageStartupMessages(library(pkg, character.only = TRUE))
+}))
+
+
+#Check if TinyTex is installed
+if (!tinytex::is_tinytex()) {
+	message("TinyTeX not installed. Please run tinytex::install_tinytex() in the console.")}
+
+#Always ensures data/raw_data/ exists at the project root
+if (!dir.exists(here("data", "raw_data"))) {
+	dir.create(here("data", "raw_data"), recursive = TRUE)
+}
+
+#Datasets + Drive listing
+datasets <- c(business="business", checkin="checkin", tip="tip", user="user", review="review")
+googledrive::drive_deauth()
+folder_id <- "1WHSh8ZQYzQ3IQI8tJX90cYGR4bDy13v3"
+drive_folder <- drive_ls(as_id(folder_id))
+
+#Loop: ensure RDS exists; if not, make it (download CSV if needed); never assign to env
+for (dataset in datasets) {
+	rds_path <- here("data", "raw_data", paste0(dataset, ".rds"))
+	csv_path <- here("data", "raw_data", paste0("yelp_academic_dataset_", dataset, ".csv"))
+	
+	if (file.exists(rds_path)) {
+		message("OK: ", rds_path, " already exists. Skipping.")
+		next
+	}
+	
+	if (!file.exists(csv_path)) {
+		message("CSV missing for ", dataset, ". Downloading from Drive...")
+		file <- drive_folder[str_detect(drive_folder$name, dataset), ]
+		size_bytes <- as.numeric(file$drive_resource[[1]]$size)
+		size_mb <- round(size_bytes / (1024^2), 2)
+		message("Download size: ", size_mb, " MB")
+		googledrive::drive_download(as_id(file$id), path = csv_path, overwrite = TRUE)
+		rm(file)
+	} else {
+		message("Found CSV: ", csv_path)
+	}
+	
+	message("Reading CSV with fread() → writing RDS: ", rds_path)
+	t0 <- Sys.time()
+	dat <- data.table::fread(csv_path, showProgress = TRUE)
+	saveRDS(dat, rds_path, compress = FALSE)              # consider:  compress = FALSE for speed
+	rm(dat); gc()
+	message("Done (", round(difftime(Sys.time(), t0, units = "secs"), 1), " sec).")
+}
+
+```
+
+## Data preparation
+
+### Sampling
+
+#### Loading the raw data
+
+For the sampling, the following datasets are needed:
+- review.rds
+- business.rds
+
+```{r}
+#loading data.tables into environment
+review <- readRDS(here("data", "raw_data","review.rds"))
+business <- readRDS(here("data", "raw_data","business.rds"))
+
+#collect $business_id vector for all Restaurant businesses
+restaurant_ids <- business[
+  grepl("Restaurants", categories, fixed = TRUE), 
+  unique(business_id)
+]
+
+#set index to speed up the data join
+setindex(review, business_id)
+
+#data join
+review_restaurants <- review[.(restaurant_ids), on = "business_id", nomatch = 0L]
+
+#check
+uniqueN(review_restaurants$business_id)  # should return 52268
+```
+
+#### Counting n. of reviews per Restaurant
+
+To make sure that we have enough training data for our prediction model, a restaurant needs to have at least 50 reviews in the dataset. This makes it a necessity to compute the # of reviews per restaurant in the data.
+
+```{r}
+#stores data.table that includes business_id and corresponding number of reviews
+review_counts <- review_restaurants[, .(n_reviews = .N), by = business_id]
+```
+
+#### Collecting open/closed variable
+
+Since our research is also focused on threat detection, it is important to check what percentage of restaurants is actually closed in the dataset. If this percentage is very low, we need to inflate the percentage of closed restaurants in our dataset as this will improve the model's ability to identify at-risk businesses due to the increased representation of the minority class. Without rebalancing, the model could become very "good" by predicting all businesses remain open, while completely failing to capture characteristics that could predict risk of closing.
+
+```{r}
+restaurant_status <- business[.(restaurant_ids), on = "business_id", .(business_id, is_open)]
+
+```
+
+The open vs. closed ratio of restaurants in the Yelp dataset is:
+
+**`r round(mean(restaurant_status$is_open) * 100, 1)`%** open and 
+**`r round((1 - mean(restaurant_status$is_open)) * 100, 1)`%** closed.
+
+```{r}
+# merge counts with open/closed status
+review_counts_status <- review_counts[
+  business[, .(business_id, is_open)], 
+  on = "business_id"
+]
+
+# how many restaurants are closed and have >= 50 reviews?
+closed_50plus <- review_counts_status[n_reviews >= 50 & is_open == 0, .N]
+closed_50plus   #no of restaurants that are closed but have 50+ reviews
+```
+
+#### Creating business_id vectors
+
+In this part, we will create business_id vectors with the following characteristics:
+
+**closed_ids vector:**
+- Type = Restaurant
+- Restaurant is currently closed
+- No. of reviews since 01 / 01 / 2018 is #100 or higher
+
+**open_ids vector:**
+- Type = Restaurant
+- Restaurant is currently open
+- No. of reviews since 01 / 01 / 2018 is #100 or higher
+
+```{r}
+checkin <- readRDS(here("data", "raw_data", "checkin.rds"))	#get checkin data in environment
+
+checkin[,date :=na_if(str_trim(date), "")]
+
+checkin[,last_checkin := as.IDate(fifelse(is.na(date),NA_character_, str_sub(date, -19,-10)))]
+
+is.na(checkin$last_checkin)%>%table() #no NA's, so extra safe for future operations
+
+
+```
+
+
+```{r}
+date_cutoff <- "2018-01-01"
+
+    #CLOSED RESTAURANTS
+
+closed_ids <- restaurant_status[is_open == 0, unique(business_id)]  #closed restaurants id's
+
+since2018_closed <- review_restaurants[
+  checkin[, .(business_id, last_checkin)],          # bring in last_checkin by business
+  on = "business_id"
+][
+  business_id %chin% closed_ids & 
+  date >= as.IDate(date_cutoff) & 
+  !is.na(last_checkin) & 
+  date <= last_checkin,                             # only count reviews before last recorded check in time
+  .N,
+  by = business_id
+]
+
+since2018_closed[N >= 100, .N]  #no. of closed restaurants that have 100+ reviews since 2018, before their last checkin
+
+closed_100plus_since18 <- since2018_closed[N >= 100, business_id] #business_id vector
+
+    #OPEN RESTAURANTS
+
+open_ids <- restaurant_status[is_open == 1, unique(business_id)]  ##open restaurants id's
+
+since2018_open <- review_restaurants[
+  business_id %chin% open_ids & date >= as.IDate(date_cutoff),
+  .N,
+  by = business_id
+]   #list of restaurants that are open and their no. of reviews since 01 / 01 / 2018
+
+since2018_open[N >= 100, .N]  #no. of open restaurants that have 100+ reviews since 2018 
+
+open_100plus_since18 <- since2018_open[N >= 100, business_id] #business_id vector
+
+```
+
+#### Randomly selecting business_id's from the business_id vectors
+
+We just created the following two business_id vectors:
+
+- **closed_100plus_since18**
+- **open_100plus_since18**
+
+As discussed earlier, we will inflate the no. of closed businesses to improve the models ability to identify at-risk businesses. The percentage of closed businesses in our training dataset will be 50%.
+
+```{r}
+set.seed(2310)    #setting seed for reproducibility
+
+sampled_closed_ids <- sample(closed_100plus_since18, 50)  #sampled business id's for closed restaurants
+
+sampled_open_ids <- sample(open_100plus_since18, 50)      #sampled business id's for open restaurants
+
+```
+
+#### Randomly selecting reviews for the selected restaurants
+
+For the randomly selected business id's, we need to select a certain no. of reviews as well. We opted for 50 reviews per restaurant. This means our final training dataset will contain:
+
+( 50 closed restaurants * 50 reviews ) + ( 50 open restaurants * 50 reviews ) = #5000 reviews.
+
+```{r}
+sampled_ids <- c(sampled_closed_ids, sampled_open_ids)  #vector of all the sampled id's
+
+review_restaurants[, date_id := as.IDate(date)] #creating date id (YYYY - MM - DD)
+
+# copy last_checkin from `checkin` into `review_restaurants` by business_id
+review_restaurants[checkin, on = "business_id", last_checkin := i.last_checkin]
+
+review_restaurants_since18 <- review_restaurants[
+  date_id >= as.IDate(date_cutoff) &	# after 2018
+  date_id <= last_checkin				# before restaurant's last checkin
+]
+
+setindex(review_restaurants_since18, business_id) #improves speed 
+
+set.seed(2310)  #set seed for reproducibility
+
+reviews_sampled <- review_restaurants_since18[
+  business_id %chin% sampled_ids,   #select only rows where business_id matches with samples_ids
+  .SD[sample(.N, 50)],              #sample 50 out of total .N ->
+  by = business_id                  #per business_id
+]
+
+#adding the is_open variable
+reviews_sampled <- reviews_sampled %>%
+  left_join(business %>% select(business_id, is_open), by = "business_id")
+```
+
+#### Storing the training data for future use
+
+We now store the selected traning data for future use in a training_data folder
+- Check if training_data folder is present
+- Create if needed
+- Store a .rds file of the training data in that folder.
+
+```{r}
+# Ensure training_data directory
+dir.create(here("data", "training_data"), recursive = TRUE, showWarnings = FALSE)
+
+# Store the training data as .rds file
+saveRDS(reviews_sampled, here("data","training_data","reviews_sampled.rds"))
+local_path <- here("data","training_data","reviews_sampled.rds")	#local path where file is stored
+file_name <- "reviews_sampled.rds"
+
+folder_id <- "1oRNbZpA4kXZRsvcNe5K1FRYFKqqT5W2h"
+			
+```
+
+##### Alternative
+
+the ultimate dataset can be downloaded by google drive
+
+```{r}
+
+folder_id <- "1oRNbZpA4kXZRsvcNe5K1FRYFKqqT5W2h"	#folder id
+googledrive::drive_deauth()
+folder <- drive_ls(as_id(folder_id))
+filename <- "reviews_sampled.rds"
+file_id <- folder[folder$name==filename,] %>% pull(id) %>% as.character()
+drive_download(as_id(file_id), path = here("data", "training_data",filename), overwrite = TRUE)
+
+reviews_sampled <- readRDS(here("data", "training_data", filename))
+
+reviews_sampled <- reviews_sampled %>%
+  left_join(business %>% select(business_id, is_open), by = "business_id")
+```
+
+
+#### Topic modeling
+
+The goal of this stage is to identify the most relevant topics discussed in the reviews. These topics will later be analyzed, together with sentiment, to assess whether they have an impact on restaurant closures.
+
+**STEP1_Cluster review**:
+
+On python:
+
+- We converted reviews into embeddings and clustered them into 18 topics.  
+- We assigned each review to a main topic, based on the highest probability of that topic occurring in the review.
+- We exported the file in csv for further analysis
+
+The following code identifies the most useful topics and marks them in the utility column for downstream analysis.
+
+```{r}
+
+#Downloading the dataset
+
+
+folder_id <- "1oRNbZpA4kXZRsvcNe5K1FRYFKqqT5W2h"	#folder id
+googledrive::drive_deauth()
+folder <- drive_ls(as_id(folder_id))
+filename <- "reviews_python_out.csv"
+file_id <- folder[folder$name==filename,] %>% pull(id) %>% as.character()
+drive_download(as_id(file_id), path = here("data",filename), overwrite = TRUE)
+
+reviews_python_out <- read.csv(here("data", filename))
+
+#prepare dataset
+
+reviews_python_out_aggregated = reviews_python_out %>% arrange(assigned_topic_id)
+
+reviews_python_out_aggregated = reviews_python_out_aggregated %>% filter(assigned_topic_id !=-1)
+
+reviews_python_out_aggregated = reviews_python_out_aggregated %>% select(-(prob_topic_0:prob_topic_18))
+
+# create a dataset describing each topic_id and its utility
+
+topic_dict <- tibble(
+  assigned_topic_id = c(0:18),
+  theme = c(
+    "Wait times & table service",          # 0
+    "Asian hot dishes (thai/pho/ramen)",   # 1
+    "Mexican (tacos/burritos/margaritas)", # 2
+    "Seafood & po' boy",                   # 3
+    "Overall experience (atmosphere/staff)",# 4
+    "Burgers & fries",                     # 5
+    "Pub/bar (beer, wings, bartender)",    # 6
+    "Italian (pasta/sauces)",              # 7
+    "Nashville hot chicken",               # 8
+    "Pizza (incl. deep-dish)",             # 9
+    "Breakfast (eggs/pancakes/benedict)",  # 10
+    "Mediterranean/Middle Eastern",        # 11
+    "Vegan/vegetarian options",            # 12
+    "Sushi & hot pot / K-BBQ",             # 13
+    "Service/staff praised",               # 14
+    "Steakhouse (cuts/doneness)",          # 15
+    "Brunch",                              # 16
+    "New Orleans / NOLA (geo)",            # 17
+    "Nashville & tapas/small plates (geo)" # 18
+  ), utility=c("high", "low", "low", "low", "high","low","low", "low", "low", "low", "low", "low", "low", "low", "high", "low", "low", "low", "low")
+)
+
+# merge datasets
+
+reviews_with_theme <- reviews_python_out_aggregated %>%
+  left_join(topic_dict, by = "assigned_topic_id")
+
+
+```
+
+
+
+
+
+
+
