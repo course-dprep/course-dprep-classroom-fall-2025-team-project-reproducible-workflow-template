@@ -5,10 +5,11 @@
 *.here
 *.pdf
 *.html
+*.png
 #Local R session junk
-.Rhistory
-.RData
-.RDataTmp
+*.Rhistory*
+*.RData*
+*.RDataTmp*
 .Rproj.user/
 
 .DS_Store
@@ -16,3 +17,6 @@
 .secrets/
 
 __pycache__/
+venv/
+.env/
+*.tmp
