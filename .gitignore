@@ -23,3 +23,9 @@ venv/
 
 cache/
 gen/
+data/
+# Ignore all .Rprofile files by default
+**/.Rprofile
+
+# But keep the one in src/
+!src/.Rprofile
