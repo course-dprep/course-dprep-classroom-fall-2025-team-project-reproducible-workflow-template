@@ -1,0 +1,4 @@
+Open terminal in this file location and run:
+
+py -3.11 -m pip install -r python_requirements.txt
+py -3.11 -m spacy download en_core_web_md

@@ -1,0 +1,15 @@
+# Python 3.11 verified working environment
+
+pandas==2.3.2
+numpy==2.2.6
+spacy==3.8.7
+spacy-huggingface-hub==0.0.10
+transformers==4.56.1
+torch==2.8.0
+bertopic==0.16.0
+sentence-transformers==5.1.0
+umap-learn==0.5.9.post2
+hdbscan==0.8.40
+scikit-learn==1.7.2
+typer==0.7.0
+click==8.1.7
