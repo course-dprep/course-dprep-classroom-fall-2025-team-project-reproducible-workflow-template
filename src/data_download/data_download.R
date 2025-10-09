@@ -1,9 +1,5 @@
 # ========== SETUP ==========
 
-# Activate renv environment
-setwd("..")
-source("renv/activate.R")
-
 # Loading required packages
 suppressPackageStartupMessages({
 	suppressWarnings({
