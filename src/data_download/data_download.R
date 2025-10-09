@@ -1,23 +1,18 @@
 # ========== SETUP ==========
 
-# Required packages
-required_packages <- c("tidyverse", "googledrive", "data.table", "here")
+# Activate renv environment
+setwd("..")
+source("renv/activate.R")
 
-# Loading packages
-for (pkg in required_packages) {
-	if (requireNamespace(pkg, quietly = TRUE)) {
-		suppressWarnings(
-			suppressPackageStartupMessages(
-				library(pkg, character.only = TRUE)
-			)
-		)
-	} else {
-		message(sprintf(
-			"Package '%s' is not installed. Make sure to first install all the required packages for this project by running dependencies/install_packages.R",
-			pkg
-		))
-	}
-}
+# Loading required packages
+suppressPackageStartupMessages({
+	suppressWarnings({
+		library(tidyverse)
+		library(data.table)
+		library(here)
+		library(googledrive)
+	})
+})
 
 # Create raw data folder if it has not been created yet
 if (!dir.exists(here("data", "raw_data"))) {
@@ -89,3 +84,18 @@ for (dataset in datasets) {
 	rm(dat); gc()
 	message("Done (", round(difftime(Sys.time(), t0, units = "secs"), 1), " sec).")
 }
+
+# Expected output files (adjust paths if needed)
+expected_files <- c(
+	here::here("data", "raw_data", "business.rds"),
+	here::here("data", "raw_data", "checkin.rds"),
+	here::here("data", "raw_data", "tip.rds"),
+	here::here("data", "raw_data", "user.rds"),
+	here::here("data", "raw_data", "review.rds")
+)
+
+# Check if all files exist
+if (all(file.exists(expected_files))) {
+	
+	file.create(here::here("data", "raw_data", ".done"))
+} 

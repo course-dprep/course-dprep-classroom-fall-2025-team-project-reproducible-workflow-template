@@ -1,24 +1,24 @@
 # ========== SETUP ==========
 
-# Load required packages for data manipulation, modeling, and visualization
-required_packages <- c("tidyverse", "here", "data.table", "compositions", "lme4", "lmerTest",
-					   "performance", "gt", "stargazer", "pROC")
+# Activate renv environment
+setwd("..")
+source("renv/activate.R")
 
-# Load each package; print message if missing
-for (pkg in required_packages) {
-	if (requireNamespace(pkg, quietly = TRUE)) {
-		suppressWarnings(
-			suppressPackageStartupMessages(
-				library(pkg, character.only = TRUE)
-			)
-		)
-	} else {
-		message(sprintf(
-			"Package '%s' is not installed. Please install all dependencies via dependencies/install_packages.R",
-			pkg
-		))
-	}
-}
+# Loading required packages
+suppressPackageStartupMessages({
+	suppressWarnings({
+		library(tidyverse)
+		library(data.table)
+		library(here)
+		library(compositions)
+		library(lme4)
+		library(lmerTest)
+		library(performance)
+		library(gt)
+		library(stargazer)
+		library(pROC)
+	})
+})
 
 # === Global parameters ===
 

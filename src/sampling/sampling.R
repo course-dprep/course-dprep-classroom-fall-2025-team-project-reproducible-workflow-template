@@ -1,23 +1,17 @@
 # ========== SETUP ==========
 
-# Required packages
-required_packages <- c("tidyverse", "data.table", "here")
+# Activate renv environment
+setwd("..")
+source("renv/activate.R")
 
-# Loading packages
-for (pkg in required_packages) {
-	if (requireNamespace(pkg, quietly = TRUE)) {
-		suppressWarnings(
-			suppressPackageStartupMessages(
-				library(pkg, character.only = TRUE)
-			)
-		)
-	} else {
-		message(sprintf(
-			"Package '%s' is not installed. Make sure to first install all the required packages for this project by running dependencies/install_packages.R",
-			pkg
-		))
-	}
-}
+# Loading required packages
+suppressPackageStartupMessages({
+	suppressWarnings({
+		library(tidyverse)
+		library(data.table)
+		library(here)
+	})
+})
 
 # === Global parameters ===
 

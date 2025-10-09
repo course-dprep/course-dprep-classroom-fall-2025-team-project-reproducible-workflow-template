@@ -1,26 +1,25 @@
 # ========== SETUP ==========
 
-# Packages used in this script
-required_packages <- c("tidyverse","here","data.table",
-					   "tidytext","textmineR","digest", "RColorBrewer", 
-					   "quanteda", "scales", "gt", "proxy")
+# Activate renv environment
+setwd("../..")
+source("renv/activate.R")
 
-# Load all required packages, or print a reminder if missing
-for (pkg in required_packages) {
-	if (requireNamespace(pkg, quietly = TRUE)) {
-		suppressWarnings(
-			suppressPackageStartupMessages(
-				library(pkg, character.only = TRUE)
-			)
-		)
-	} else {
-		message(sprintf(
-			"Package '%s' is not installed. Please run dependencies/install_packages.R first.",
-			pkg
-		))
-	}
-}
-
+# Loading required packages
+suppressPackageStartupMessages({
+	suppressWarnings({
+		library(tidyverse)
+		library(data.table)
+		library(here)
+		library(tidytext)
+		library(textmineR)
+		library(digest)
+		library(RColorBrewer)
+		library(quanteda)
+		library(scales)
+		library(gt)
+		library(proxy)
+	})
+})
 
 # ========== GLOBAL SETTINGS ==========
 
@@ -53,6 +52,8 @@ output_paths <- list(
 # Set seed for reproducibility
 set.seed(999)
 
+# Prevent auto creation of plots in wd()
+pdf(NULL)
 
 # ========== INPUT ==========
 
@@ -447,3 +448,5 @@ ggplot(mds_coords, aes(x = x, y = y)) +
 # Save the plot
 ggsave(output_paths$lda_vis,
 	   width = 7, height = 7, dpi = 300, bg = "white")
+
+dev.off()

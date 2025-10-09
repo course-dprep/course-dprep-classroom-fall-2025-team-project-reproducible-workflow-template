@@ -1,0 +1,12 @@
+library/
+local/
+cellar/
+lock/
+python/
+sandbox/
+staging/
+
+# Keep the key files needed for environment restoration
+!activate.R
+!settings.json
+!.gitignore

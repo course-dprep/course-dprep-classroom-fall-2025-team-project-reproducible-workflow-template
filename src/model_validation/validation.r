@@ -1,26 +1,27 @@
 # ========== SETUP ==========
 
-# Required packages
-required_packages <- c(
-	"tidyverse", "data.table", "here", "cld3", "textclean",
-	"vader", "quanteda", "tm", "pROC", "gt", "tidytext", "textmineR", "compositions"
-)
+# Activate renv environment
+setwd("..")
+source("renv/activate.R")
 
-# Load packages silently
-for (pkg in required_packages) {
-	if (requireNamespace(pkg, quietly = TRUE)) {
-		suppressWarnings(
-			suppressPackageStartupMessages(
-				library(pkg, character.only = TRUE)
-			)
-		)
-	} else {
-		message(sprintf(
-			"Package '%s' is not installed. Please install it first.",
-			pkg
-		))
-	}
-}
+# Loading required packages
+suppressPackageStartupMessages({
+	suppressWarnings({
+		library(tidyverse)
+		library(data.table)
+		library(here)
+		library(cld3)
+		library(textclean)
+		library(vader)
+		library(quanteda)
+		library(tm)
+		library(pROC)
+		library(gt)
+		library(tidytext)
+		library(textmineR)
+		library(compositions)
+	})
+})
 
 # Seed for reproducibility
 set.seed(2310)
