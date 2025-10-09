@@ -6,8 +6,11 @@
 DATA_DIR := ../../data/raw_data
 SCRIPT := data_download.R
 
-# Output files produced by the script
-TARGETS := \
+# Marker file
+TARGETS := $(DATA_DIR)/.done
+
+# Actual data files
+DATA := \
 	$(DATA_DIR)/business.rds \
 	$(DATA_DIR)/checkin.rds \
 	$(DATA_DIR)/review.rds \
@@ -19,17 +22,20 @@ TARGETS := \
 	$(DATA_DIR)/yelp_academic_dataset_tip.csv \
 	$(DATA_DIR)/yelp_academic_dataset_user.csv
 
-# Default target: build all data
+# Default target
 all: $(TARGETS)
 
-# Create data directory
+# Create data directory if needed
 $(DATA_DIR):
 	if not exist $(DATA_DIR) mkdir $(DATA_DIR)
 
-$(TARGETS): $(SCRIPT)|$(DATA_DIR)
+# Build target: run the R script that generates all files
+$(TARGETS): $(SCRIPT) | $(DATA_DIR)
 	@echo "Downloading raw data..."
-	Rscript data_download.R
+	Rscript $(SCRIPT)
 
+# Clean target: remove all generated data and marker
 .PHONY: clean
 clean:
+	del /Q $(subst /,\,$(DATA)) 2>nul || true
 	del /Q $(subst /,\,$(TARGETS)) 2>nul || true
