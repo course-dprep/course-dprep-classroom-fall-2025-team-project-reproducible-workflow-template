@@ -1,5 +1,5 @@
 # A topic modeling study: The association between Yelp reviews' sentiment and restaurant closures
-*Which aspects of the feedback provided by Yelp customer reviews are associated with restaurant closures?* 
+***Which aspects of the feedback provided by Yelp customer reviews are associated with restaurant closures?*** 
 
 
 ## Motivation
@@ -9,15 +9,24 @@ Investigating the research question *Which aspects of the feedback provided by Y
 
 
 ## Data
-The dataset used was Yelp Open Dataset, a public dataset provided by the review platform *Yelp*. This dataset was obtained via the following link: [Yelp Open Dataset](https://business.yelp.com/data/resources/open-dataset/). 
+The dataset used was Yelp Open Dataset, a public dataset provided by the review platform *Yelp*. This dataset was obtained via the following link: [Yelp Open Dataset](https://business.yelp.com/data/resources/open-dataset/). Given the size of some of the subsets in our dataset the individual `.csv` files can be found in the following drive: [Yelp-Dataset](https://drive.google.com/drive/folders/1WHSh8ZQYzQ3IQI8tJX90cYGR4bDy13v3). 
 
-The dataset contains 5 subsets of data: *business*, *review*, *checkin*, *tip*, and *user*, but only the *business*, *review*, and *checkin* subsets were relevant for our study. The *business* subset contains general business data including location, attributes, categories, and information on whether restaurants are open or closed; the *review* subset contains full review texts and metadata; and the *checkin* subset contains comma-separated timestamps for every logged check-in of each restaurant.
+The dataset contains 5 subsets of data: **business**, **review**, **checkin**, **tip**, and **user**, but only the **business**, **review**, and **checkin** subsets were relevant for our study. The **business** subset contains general business data including location, attributes, categories, and information on whether restaurants are open or closed; the **review** subset contains full review texts and metadata; and the **checkin** subset contains comma-separated timestamps for every logged check-in of each restaurant.
 
-Furthermore, the dataset contains millions of reviews on a variety of types of establishments, services, and experiences that lay outside the scope of our project. Thus, we constructed a balanced dataset that consists of a random sample of 5000 restaurant reviews, ***reviews_sampled.rds***. This sample included 100 restaurants (50 of which open, and 50 of which closed) that each have at least 100 reviews since 2018. For closed restaurants, only reviews up to the date of the last check-in (i.e. while they were still active) were considered. For each restaurant, 50 reviews were randomly selected, resuting in the final sample of 5000 observations. 
+Furthermore, the dataset contains millions of reviews on a variety of types of establishments, services, and experiences that lay outside the scope of our project. Thus, we constructed a balanced dataset that consists of a random sample of 5000 restaurant reviews, ***reviews_sampled.rds***. *?This sample included 100 restaurants (50 of which open, and 50 of which closed) that each have at least 100 reviews since 2018. For closed restaurants, only reviews up to the date of the last check-in (i.e. while they were still active) were considered. For each restaurant, 50 reviews were randomly selected, resuting in the final sample of 5000 observations.?* 
 
 The table below summarizes the most important variables at this stage of the project:
-
-<img width="500" height="200" alt="image" src="https://github.com/user-attachments/assets/a273114f-f1bc-4b48-81ac-de9693932120" />
+|Variable                        |Description                                                                                     |
+|--------------------------------|------------------------------------------------------------------------------------------------|
+|Business_ID                     |The business ID of the reviewed company                                                         |
+|Review_ID	                     |The ID of the review		                                                                      |
+|Text                            |The complete review of the user	                                                              |
+|Stars                           |The amount of stars (between 1-5) given by the user                                             |
+|Date		                     |The timestamp of the review			                                                          |
+|User_ID		                 |The ID of the user who submitted the review                                                     |
+|Is_Open                         |Wherther the restaurant is active/open (1) or closed (0)	                                      | 
+|Checkin                         |All recorded checkin timestamps of reviews for a company										  |
+|Last_Checkin                    |The last recorded checkin timestamps of a review for a company                                  |
 
 ## Method
 
@@ -38,12 +47,38 @@ This integrated approach provides a clear and data-driven way to link review con
 - How are the findings/end product of the project deployed?
 - Explain the relevance of these findings/product. 
 
-## Repository Overview 
-- data/ → contains the datasets used in the project.
-- reporting/ → contains R Markdown files documenting the project’s progress and results.
-- scripts/ → contains both R and Python scripts developed for the project.
-- cloudstorage/ → contains a file with the link to the shared Google Drive folder (e.g., Google Docs and other shared resources).
-  
+## Repository Overview
+
+- **data/** → contains the datasets used in the project.  
+	- **raw_data/**  
+	- **training_data/**  
+	- **final_data/**
+- **dependencies/** → contains external libraries, models, or configuration files required for execution.
+- **gen/** → contains the created figures and tables used for the final paper.  
+	- **figures/**  
+	- **tables/**
+- **reporting/** → contains R Markdown files documenting the project’s progress and results throughout the project.  
+	- **temporary_reports/**  
+	- **report_pdf/**
+- **src/** → contains both R and Python scripts developed for the project.  
+	- **analysis/** → exploratory data analysis and statistical summaries.  
+	- **data_download/** → scripts responsible for downloading external datasets.  
+	- **model_validation/** → evaluating and validating model performance.  
+	- **reports/** → auto-generated scripts used to create reports.  
+		- **data_exploration_and_sampling/**   
+		- **final_report/**   
+		- **temporary_reports/**   
+	- **sampling/** → procedures for generating training samples.  
+	- **sentiment/** → sentiment analysis models.  
+	- **topic_modelling/** → topic extraction and modelling techniques.  
+		- **bert/** → BERT-based topic modelling.  
+		- **data_cleaning_for_bert/** → preprocessing for BERT models.  
+		- **data_cleaning_for_ner/** → preprocessing for Named Entity Recognition.  
+		- **lda/** → Latent Dirichlet Allocation models.  
+		- **ner/** → Named Entity Recognition scripts.  
+		- **wordcloud_bert/** → word cloud generation using BERT embeddings.
+
+
 ## Dependencies 
 
 Please follow the installation guides on [Tilburg Science Hub](https://tilburgsciencehub.com/)
@@ -53,88 +88,11 @@ Please follow the installation guides on [Tilburg Science Hub](https://tilburgsc
 + Make
 [Installation Guide](https://tilburgsciencehub.com/topics/automation/automation-tools/makefiles/make/)
 
-Now, copy and run the following code in R:
 
-```{r}
-required_packages <- c("tidyverse", "data.table", "here", "googledrive", "dplyr")
-
-for (pkg in required_packages) {
-	if (!requireNamespace(pkg, quietly = TRUE)) {
-		suppressMessages(install.packages(pkg))
-	}
-}
-#load all the dependencies
-invisible(lapply(required_packages, function(pkg) {
-	suppressPackageStartupMessages(library(pkg, character.only = TRUE))
-}))
-
-```
 
 ## Running Instructions 
 
-Here’s a concise **Step-by-Step** :
 
-1. **install packages**
-   
-install.packages(c("rmarkdown","knitr","tidyverse","data.table","here","googledrive"))
-
-2. **Download data** form Yelp
-
-Downloads Yelp CSVs from Google Drive (public folder) only if not present, converts to `.rds`.
-
-3. **Load data** into the environment
-
-4. **create the sample**
-
-- From `business`, keep only businesses with category *Restaurants*.
-
-- Extract their `business_id` values and join with the `review` dataset.
-
-- Compute the number of reviews per restaurant (`n_reviews`).
-
-- Keep only restaurants with at least 50 reviews.
-
-- Merge in the `is_open` variable from `business`.
-
-- Check the proportion of open vs. closed restaurants.
-
-- Define selection criteria: close vs open, where:
-
-Closed\_ids: closed restaurants with **100+ reviews since Jan 1, 2018**, counted only until their last check-in.
-Open\_ids: open restaurants with **100+ reviews since Jan 1, 2018**.
-
-- Sample restaurants
-50 closed restaurants
-50 open restaurants
-
-- Sample reviews
-
-For each selected restaurant, randomly sample **50 reviews** (after 2018, and before last check-in if closed).
-
-Final dataset size: (50 × 50) + (50 × 50) = **5,000 reviews**.
-
-Add the `is_open` variable to the sampled reviews (label open/closed).
-
-- Save final dataset
-
-- Alternatively, download it directly from Google Drive.
-
-5. **topic modelling**
-
-The goal of this stage is to identify the most relevant topics discussed in the reviews. These topics will later be analyzed, together with sentiment, to assess whether they have an impact on restaurant closures.
-
-On python:
-
-- We converted reviews into embeddings and clustered them into 18 topics.  
-- We assigned each review to a main topic, based on the highest probability of that topic occurring in the review.
-- We exported the file in csv for further analysis
-
-On r: we identified the most useful topics and marked them in a specific column named "utility" for downstream analysis.
-
-Next steps for topic modelling: 
-
-- Word Frequency & Dictionary Creation: Count the most frequent words in the reviews to build a dictionary of themes from the useful clusters and frequent words.
-– Expanding the Dictionary with keyATM: Use keyATM to identify synonyms or related phrases we might have missed.
 
 ## About 
 
