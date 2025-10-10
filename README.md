@@ -105,8 +105,12 @@ git clone [link of this Repository]
 4. Set your working directory to the just forked repository and run the following command:
 ```
 make
-``` 
-Additional:
+```
+#### Additional:
+Since some of the subsets of our data is very large, we have a "nodownload" automation. For this, download the `.csv` files from the [Yelp-Dataset](https://drive.google.com/drive/folders/1WHSh8ZQYzQ3IQI8tJX90cYGR4bDy13v3). Then run the following command: 
+```
+make nodownload
+```
 If you want to clean the directory (e.g., data output), run the following command:
 ```
 make clean
