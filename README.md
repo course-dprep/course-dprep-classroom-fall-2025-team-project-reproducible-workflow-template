@@ -57,9 +57,6 @@ This integrated approach provides a clear and data-driven way to link review con
 - **gen/** → contains the created figures and tables used for the final paper.  
 	- **figures/**  
 	- **tables/**
-- **reporting/** → contains R Markdown files documenting the project’s progress and results throughout the project.  
-	- **temporary_reports/**  
-	- **report_pdf/**
 - **src/** → contains both R and Python scripts developed for the project.  
 	- **analysis/** → exploratory data analysis and statistical summaries.  
 	- **data_download/** → scripts responsible for downloading external datasets.  
@@ -97,7 +94,7 @@ Please follow the installation guides on [Tilburg Science Hub](https://tilburgsc
 ## Running Instructions 
 For this workflow to run, the following steps should be taken:
 > [!IMPORTANT]
-> **After completing the instalation requirements in the Dependencies.**
+> **After** completing the instalation requirements in the Dependencies!
 
 1. Fork the repository
 2. Open your command-line (e.g., Git GUI)
