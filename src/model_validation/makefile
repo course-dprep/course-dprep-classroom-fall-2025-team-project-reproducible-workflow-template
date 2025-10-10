@@ -39,7 +39,7 @@ all: $(TARGETS)
 # Directory Creation Rule
 # ----------------------------
 $(GEN_DIR_TABLES):
-	if not exist $@ mkdir $@
+	Rscript -e "if (!dir.exists('$(GEN_DIR_TABLES)')) dir.create('$(GEN_DIR_TABLES)', recursive = TRUE)"
 
 # ----------------------------
 # Sentiment Analysis Rule
@@ -53,4 +53,5 @@ $(TARGETS): $(SCRIPT) $(REVIEWS) $(BUSINESS_RAW) $(LDA_MODEL) $(LOGISTIC_MODEL) 
 # ----------------------------
 .PHONY: clean
 clean:
-	del /Q $(subst /,\,$(TARGETS)) 2>nul || true
+	@echo "Deleting model validation output..."
+	Rscript -e "files <- strsplit('$(TARGETS)', ' ')[[1]]; unlink(files, recursive = TRUE, force = TRUE)"

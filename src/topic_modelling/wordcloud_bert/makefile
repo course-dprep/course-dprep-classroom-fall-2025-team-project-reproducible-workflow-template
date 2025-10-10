@@ -34,8 +34,11 @@ all: $(TARGETS)
 # ----------------------------
 # Directory Creation Rule
 # ----------------------------
-$(DATA_DIR_TRAINING) $(GEN_DIR_FIGURES):
-	if not exist $@ mkdir $@
+$(DATA_DIR_TRAINING):
+	Rscript -e "if (!dir.exists('$(DATA_DIR_TRAINING)')) dir.create('$(DATA_DIR_TRAINING)', recursive = TRUE)"
+
+$(GEN_DIR_FIGURES):
+	Rscript -e "if (!dir.exists('$(GEN_DIR_FIGURES)')) dir.create('$(GEN_DIR_FIGURES)', recursive = TRUE)"
 
 # ----------------------------
 # Wordcloud rule
@@ -49,4 +52,5 @@ $(TARGETS): $(SCRIPT) $(BERTOPIC_TOPICS) | $(DATA_DIR_TRAINING) $(GEN_DIR_FIGURE
 # ----------------------------
 .PHONY: clean
 clean:
-	del /Q $(subst /,\,$(TARGETS)) 2>nul || true
+	@echo "Deleting plot..."
+	Rscript -e "files <- strsplit('$(TARGETS)', ' ')[[1]]; unlink(files, recursive = TRUE, force = TRUE)"

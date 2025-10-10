@@ -27,7 +27,7 @@ all: $(TARGETS)
 
 # Create data directory if needed
 $(DATA_DIR):
-	if not exist $(DATA_DIR) mkdir $(DATA_DIR)
+	Rscript -e "if (!dir.exists('$(DATA_DIR)')) dir.create('$(DATA_DIR)', recursive = TRUE)"
 
 # Build target: run the R script that generates all files
 $(TARGETS): $(SCRIPT) | $(DATA_DIR)
@@ -37,5 +37,6 @@ $(TARGETS): $(SCRIPT) | $(DATA_DIR)
 # Clean target: remove all generated data and marker
 .PHONY: clean
 clean:
-	del /Q $(subst /,\,$(DATA)) 2>nul || true
-	del /Q $(subst /,\,$(TARGETS)) 2>nul || true
+	Rscript -e "files <- strsplit('$(DATA) $(TARGETS)', ' ')[[1]]; unlink(files, recursive = TRUE, force = TRUE)"
+
+

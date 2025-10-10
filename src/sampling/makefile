@@ -37,8 +37,11 @@ all: $(TARGETS)
 # ----------------------------
 # Directory Creation Rules
 # ----------------------------
-$(DATA_DIR_TRAINING) $(DATA_DIR_VALIDATION):
-	if not exist $@ mkdir $@
+$(DATA_DIR_TRAINING):
+	Rscript -e "if (!dir.exists('$(DATA_DIR_TRAINING)')) dir.create('$(DATA_DIR_TRAINING)', recursive = TRUE)"
+
+$(DATA_DIR_VALIDATION):
+	Rscript -e "if (!dir.exists('$(DATA_DIR_VALIDATION)')) dir.create('$(DATA_DIR_VALIDATION)', recursive = TRUE)"
 
 # ----------------------------
 # Sampling Rule
@@ -52,4 +55,5 @@ $(TARGETS): $(SCRIPT) $(REVIEW_RAW) $(BUSINESS_RAW) $(CHECKIN_RAW) | $(DATA_DIR_
 # ----------------------------
 .PHONY: clean
 clean:
-	del /Q $(subst /,\,$(TARGETS)) 2>nul || true
+	@echo "Cleaning sampled data..."
+	Rscript -e "files <- strsplit('$(TARGETS)', ' ')[[1]]; unlink(files, recursive = TRUE, force = TRUE)"

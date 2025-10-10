@@ -51,8 +51,17 @@ all: $(TARGETS)
 # ----------------------------
 # Directory Creation Rules
 # ----------------------------
-$(DATA_DIR_TRAINING) $(DATA_DIR_FINAL) $(GEN_DIR_FIGURES) $(GEN_DIR_TABLES):
-	if not exist $@ mkdir $@
+$(DATA_DIR_TRAINING):
+	Rscript -e "if (!dir.exists('$(DATA_DIR_TRAINING)')) dir.create('$(DATA_DIR_TRAINING)', recursive = TRUE)"
+
+$(DATA_DIR_FINAL):
+	Rscript -e "if (!dir.exists('$(DATA_DIR_FINAL)')) dir.create('$(DATA_DIR_FINAL)', recursive = TRUE)"
+
+$(GEN_DIR_FIGURES):
+	Rscript -e "if (!dir.exists('$(GEN_DIR_FIGURES)')) dir.create('$(GEN_DIR_FIGURES)', recursive = TRUE)"
+
+$(GEN_DIR_TABLES):
+	Rscript -e "if (!dir.exists('$(GEN_DIR_TABLES)')) dir.create('$(GEN_DIR_TABLES)', recursive = TRUE)"
 
 # ----------------------------
 # LDA Analysis Rule
@@ -66,4 +75,5 @@ $(TARGETS): $(SCRIPT) $(REVIEWS_MASKED) $(REVIEWS_SAMPLE) | $(DATA_DIR_FINAL) $(
 # ----------------------------
 .PHONY: clean
 clean:
-	del /Q $(subst /,\,$(TARGETS)) 2>nul || true
+	@echo "Deleting LDA data, figures and plots..."
+	Rscript -e "files <- strsplit('$(TARGETS)', ' ')[[1]]; unlink(files, recursive = TRUE, force = TRUE)"

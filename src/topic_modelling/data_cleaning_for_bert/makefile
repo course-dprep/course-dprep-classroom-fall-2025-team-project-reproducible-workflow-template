@@ -35,8 +35,7 @@ all: $(TARGETS)
 # Directory Creation Rule
 # ----------------------------
 $(DATA_DIR_TRAINING):
-	if not exist $@ mkdir $@
-
+	Rscript -e "if (!dir.exists('$(DATA_DIR_TRAINING)')) dir.create('$(DATA_DIR_TRAINING)', recursive = TRUE)"
 # ----------------------------
 # Cleaning Rule
 # ----------------------------
@@ -49,4 +48,5 @@ $(TARGETS): $(SCRIPT) $(REVIEWS_SAMPLE) $(BUSINESS_RAW) | $(DATA_DIR_TRAINING)
 # ----------------------------
 .PHONY: clean
 clean:
-	del /Q $(subst /,\,$(TARGETS)) 2>nul || true
+	@echo "Cleaning data..."
+	Rscript -e "files <- strsplit('$(TARGETS)', ' ')[[1]]; unlink(files, recursive = TRUE, force = TRUE)"

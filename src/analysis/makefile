@@ -47,8 +47,11 @@ all: $(TARGETS)
 # ----------------------------
 # Directory Creation Rule
 # ----------------------------
-$(DATA_DIR_FINAL) $(GEN_DIR_TABLES):
-	if not exist $@ mkdir $@
+$(DATA_DIR_FINAL):
+	Rscript -e "if (!dir.exists('$(DATA_DIR_FINAL)')) dir.create('$(DATA_DIR_FINAL)', recursive = TRUE)"
+
+$(GEN_DIR_TABLES):
+	Rscript -e "if (!dir.exists('$(GEN_DIR_TABLES)')) dir.create('$(GEN_DIR_TABLES)', recursive = TRUE)"
 
 # ----------------------------
 # Sentiment Analysis Rule
@@ -62,4 +65,5 @@ $(TARGETS): $(SCRIPT) $(REVIEWS) $(BUSINESS_RAW) $(SENTIMENT) $(THETA) | $(DATA_
 # ----------------------------
 .PHONY: clean
 clean:
-	del /Q $(subst /,\,$(TARGETS)) 2>nul || true
+	@echo "Deleting analysis output..."
+	Rscript -e "files <- strsplit('$(TARGETS)', ' ')[[1]]; unlink(files, recursive = TRUE, force = TRUE)"

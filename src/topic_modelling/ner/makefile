@@ -33,7 +33,7 @@ all: $(TARGETS)
 # Directory Creation Rule
 # ----------------------------
 $(DATA_DIR_TRAINING):
-	if not exist $@ mkdir $@
+	Rscript -e "if (!dir.exists('$(DATA_DIR_TRAINING)')) dir.create('$(DATA_DIR_TRAINING)', recursive = TRUE)"
 
 # ----------------------------
 # Masking Rule
@@ -47,4 +47,5 @@ $(TARGETS): $(SCRIPT) $(REVIEWS_CLEANED_NER) | $(DATA_DIR_TRAINING)
 # ----------------------------
 .PHONY: clean
 clean:
-	del /Q $(subst /,\,$(TARGETS)) 2>nul || true
+	@echo "Deleting masked reviews..."
+	Rscript -e "files <- strsplit('$(TARGETS)', ' ')[[1]]; unlink(files, recursive = TRUE, force = TRUE)"
