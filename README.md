@@ -83,16 +83,37 @@ This integrated approach provides a clear and data-driven way to link review con
 
 Please follow the installation guides on [Tilburg Science Hub](https://tilburgsciencehub.com/)
 
-+ R
++ R: 
 [R Installation Guide](https://tilburgsciencehub.com/topics/computer-setup/software-installation/rstudio/r/)
-+ Make
++ Make: 
 [Installation Guide](https://tilburgsciencehub.com/topics/automation/automation-tools/makefiles/make/)
-
-
++ Install required packages: 
+[Dependencies/install_packages.R](https://github.com/course-dprep/yelp-restaurant-closures/blob/main/dependencies/install_packages.R)
+> [!NOTE]
+> There are a lot of packages that could cause errors due to version differences. Therefore, the second code in `install.packages.R` shows all versions of packages and dependancies used for this project to work. 
++ Install Python version 3.11: 
+[Python_Instructions.txt](https://github.com/course-dprep/yelp-restaurant-closures/blob/main/dependencies/python_instructions.txt)
 
 ## Running Instructions 
+For this workflow to run, the following steps should be taken:
+> [!IMPORTANT]
+> **After completing the instalation requirements in the Dependencies.**
 
-
+1. Fork the repository
+2. Open your command-line (e.g., Git GUI)
+3. Create a copy of the repository to your local machine by copying the following sentence in your command-line:
+```
+git clone [link of this Repository]
+```
+4. Set your working directory to the just forked repository and run the following command:
+```
+make
+``` 
+Additional:
+If you want to clean the directory (e.g., data output), run the following command:
+```
+make clean
+``` 
 
 ## About 
 
